@@ -54,6 +54,12 @@ output-options:
     - ClusterPolicyCreate
     - PolicyReport
     - PolicyReportCreate
+    # ADR-0045: KubeNodeVM + KubeNodeVMSummaryRow are hand-written
+    # (internal/api/cloud_types.go) so the reconciliation status enum and
+    # helper types stay in one place; excluding them prevents codegen from
+    # emitting duplicate structs.
+    - KubeNodeVM
+    - KubeNodeVMSummaryRow
   exclude-operation-ids:
     # The extract endpoints are hand-written handlers mounted directly on
     # the mux in cmd/longue-vue/main.go. Documented in openapi.yaml so
@@ -139,6 +145,13 @@ output-options:
     - createPolicyReport
     - getPolicyReport
     - deletePolicyReport
+    # ADR-0045: listKubeNodeVMs + summarizeKubeNodeVMs are hand-written
+    # handlers mounted directly on the main mux
+    # (kube_node_vm_handlers.go). Documented in openapi.yaml so they
+    # appear in Swagger UI; excluded from the strict-server interface to
+    # avoid double registration and duplicate-type conflicts.
+    - listKubeNodeVMs
+    - summarizeKubeNodeVMs
 generate:
   models: true
   std-http-server: true

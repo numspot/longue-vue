@@ -591,6 +591,8 @@ func buildHTTPServer(
 		requireScope(auth.ScopeRead)(cloudAuth(auditWrap(api.HandleListDistinctVMApplications(pg)))),
 	)
 	mux.Handle("GET /v1/os-images", requireScope(auth.ScopeRead)(cloudAuth(auditWrap(api.HandleListOSImages(pg)))))
+	mux.Handle("GET /v1/kube-node-vms", requireScope(auth.ScopeRead)(cloudAuth(auditWrap(api.HandleListKubeNodeVMs(pg)))))
+	mux.Handle("GET /v1/kube-node-vms/summary", requireScope(auth.ScopeRead)(cloudAuth(auditWrap(api.HandleKubeNodeVMSummary(pg)))))
 	mux.Handle("GET /v1/container-freshness", requireScope(auth.ScopeRead)(cloudAuth(auditWrap(api.HandleListContainerFreshness(pg)))))
 	mux.Handle("GET /v1/container-freshness/extract",
 		requireScope(auth.ScopeRead)(cloudAuth(auditWrap(api.HandleContainerFreshnessExtract(pg, cfg.extractMaxRows)))))

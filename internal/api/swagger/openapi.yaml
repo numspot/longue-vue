@@ -4038,6 +4038,79 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /v1/kube-node-vms:
+    get:
+      operationId: listKubeNodeVMs
+      summary: List kube-tagged cloud VMs and their reconciliation status
+      description: |
+        Cloud VMs carrying a Kubernetes cluster tag (OscK8sClusterID/* or
+        OscK8sNodeName) reported by the VM collector, with the status
+        computed at ingest (ADR-0045): `node`, `pending`, `orphan`,
+        `unknown_cluster`. When `status` is absent the list defaults to
+        `orphan` + `unknown_cluster`.
+      tags: [virtual-machines]
+      security:
+        - BearerAuth: [read]
+        - SessionCookie: [read]
+      parameters:
+        - { name: cloud_account_id, in: query, schema: { type: string, format: uuid } }
+        - { name: cluster_id, in: query, schema: { type: string, format: uuid } }
+        - name: status
+          in: query
+          description: Repeatable. Defaults to orphan and unknown_cluster.
+          schema: { type: array, items: { type: string, enum: [node, pending, orphan, unknown_cluster] } }
+          style: form
+          explode: true
+        - { name: cluster_hint, in: query, schema: { type: string } }
+        - { name: instance_type, in: query, schema: { type: string } }
+        - { name: power_state, in: query, schema: { type: string } }
+        - name: name
+          in: query
+          description: Case-insensitive substring (or *-glob) on name and provider VM id.
+          schema: { type: string }
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: sort
+          in: query
+          schema: { type: string, enum: [name, status, instance_type, power_state, status_since, first_seen_at, last_seen_at, provider_creation_date] }
+        - $ref: "#/components/parameters/SortOrder"
+      responses:
+        "200":
+          description: Kube-tagged VMs.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/KubeNodeVM" } }
+                  next_cursor: { type: string, nullable: true }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /v1/kube-node-vms/summary:
+    get:
+      operationId: summarizeKubeNodeVMs
+      summary: Per-account, per-status counts of kube-tagged VMs
+      tags: [virtual-machines]
+      security:
+        - BearerAuth: [read]
+        - SessionCookie: [read]
+      parameters:
+        - { name: cloud_account_id, in: query, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Summary rows.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rows]
+                properties:
+                  rows: { type: array, items: { $ref: "#/components/schemas/KubeNodeVMSummaryRow" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
   /v1/container-freshness:
     get:
       operationId: listContainerFreshness
@@ -8249,3 +8322,41 @@ components:
         node_count:
           type: integer
           description: Number of active cluster nodes referencing this image.
+
+    KubeNodeVM:
+      type: object
+      required: [id, cloud_account_id, cloud_account_name, provider_vm_id, name, status, status_since, first_seen_at, last_seen_at]
+      properties:
+        id: { type: string, format: uuid }
+        cloud_account_id: { type: string, format: uuid }
+        cloud_account_name: { type: string }
+        provider_vm_id: { type: string }
+        cluster_tag: { type: string }
+        node_name_tag: { type: string }
+        cluster_hint: { type: string, description: "Cluster name derived from the CAPO machine name" }
+        name: { type: string }
+        instance_type: { type: string }
+        power_state: { type: string }
+        zone: { type: string }
+        vpc_id: { type: string }
+        image_id: { type: string }
+        image_name: { type: string }
+        provider_creation_date: { type: string, format: date-time, nullable: true }
+        node_id: { type: string, format: uuid, nullable: true }
+        cluster_id: { type: string, format: uuid, nullable: true }
+        cluster_name: { type: string, nullable: true }
+        status: { type: string, enum: [node, pending, orphan, unknown_cluster] }
+        status_since: { type: string, format: date-time }
+        first_seen_at: { type: string, format: date-time }
+        last_seen_at: { type: string, format: date-time }
+    KubeNodeVMSummaryRow:
+      type: object
+      required: [cloud_account_id, cloud_account_name, status, count, vcpu, memory_gib]
+      properties:
+        cloud_account_id: { type: string, format: uuid }
+        cloud_account_name: { type: string }
+        status: { type: string, enum: [node, pending, orphan, unknown_cluster] }
+        count: { type: integer }
+        vcpu: { type: integer, description: "Sum of vCPU parsed from instance types (0 for unparsable types)" }
+        memory_gib: { type: integer }
+
