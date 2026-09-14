@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -207,5 +208,137 @@ func TestReconcileKubeNodeVMs_SkipsInvalidProviderID(t *testing.T) {
 	}
 	if res.Upserted != 1 {
 		t.Fatalf("upserted=%d; want 1 (invalid id skipped)", res.Upserted)
+	}
+}
+
+func seedKubeNodeVMRows(t *testing.T, pg *PG) uuid.UUID {
+	t.Helper()
+	accountID, _ := seedKubeNodeVMFixture(t, pg)
+	items := []api.NodeImage{
+		{ProviderVMID: "i-live", Name: "main-x-md-worker-a", ClusterHint: "main-x", InstanceType: "tinav7.c8r32p1"},
+		{
+			ProviderVMID:         "i-orph1",
+			Name:                 "main-x-md-worker-b",
+			ClusterHint:          "main-x",
+			InstanceType:         "tinav7.c8r32p1",
+			PowerState:           "running",
+			ProviderCreationDate: ago(400 * time.Hour),
+		},
+		{
+			ProviderVMID:         "i-orph2",
+			Name:                 "main-x-md-worker-c",
+			ClusterHint:          "main-x",
+			InstanceType:         "tinav7.c4r16p1",
+			PowerState:           "stopped",
+			ProviderCreationDate: ago(300 * time.Hour),
+		},
+		{
+			ProviderVMID:         "i-unk",
+			Name:                 "rome01-md-worker-d",
+			ClusterHint:          "rome01",
+			InstanceType:         "inference7-h100.medium",
+			ProviderCreationDate: ago(400 * time.Hour),
+		},
+		{ProviderVMID: "i-pend", Name: "main-x-md-worker-e", ClusterHint: "main-x", ProviderCreationDate: ago(time.Hour)},
+	}
+	if _, err := pg.ReconcileKubeNodeVMs(context.Background(), accountID, items, 24*time.Hour); err != nil {
+		t.Fatalf("seed reconcile: %v", err)
+	}
+	return accountID
+}
+
+//nolint:gocyclo // one fixture, several filter + pagination assertions
+func TestListKubeNodeVMs_FiltersAndPagination(t *testing.T) {
+	pg := newTestPG(t)
+	ctx := context.Background()
+	accountID := seedKubeNodeVMRows(t, pg)
+
+	// status filter (multi)
+	items, _, err := pg.ListKubeNodeVMs(ctx, api.KubeNodeVMListFilter{
+		CloudAccountID: &accountID,
+		Statuses:       []api.KubeNodeVMStatus{api.KubeNodeVMStatusOrphan, api.KubeNodeVMStatusUnknownCluster},
+	}, api.ListPage{Limit: 50})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(items) != 3 {
+		t.Fatalf("orphan+unknown = %d; want 3", len(items))
+	}
+	// denormalised names
+	if items[0].CloudAccountName == "" {
+		t.Fatalf("cloud_account_name not denormalised: %+v", items[0])
+	}
+
+	// name search matches provider id too
+	q := "orph2"
+	items, _, err = pg.ListKubeNodeVMs(ctx, api.KubeNodeVMListFilter{CloudAccountID: &accountID, Name: &q}, api.ListPage{Limit: 50})
+	if err != nil || len(items) != 1 || items[0].ProviderVMID != "i-orph2" {
+		t.Fatalf("name search: err=%v items=%+v", err, items)
+	}
+
+	// power_state + instance_type + cluster_hint
+	ps, it, ch := "stopped", "tinav7.c4r16p1", "main-x"
+	items, _, err = pg.ListKubeNodeVMs(
+		ctx,
+		api.KubeNodeVMListFilter{CloudAccountID: &accountID, PowerState: &ps, InstanceType: &it, ClusterHint: &ch},
+		api.ListPage{Limit: 50},
+	)
+	if err != nil || len(items) != 1 {
+		t.Fatalf("combined filters: err=%v n=%d", err, len(items))
+	}
+
+	// pagination by name asc, page size 2 over all 5 rows
+	all := []api.KubeNodeVMStatus{"node", "pending", "orphan", "unknown_cluster"}
+	var got []string
+	cursor := ""
+	for {
+		page, next, err := pg.ListKubeNodeVMs(ctx, api.KubeNodeVMListFilter{CloudAccountID: &accountID, Statuses: all},
+			api.ListPage{Limit: 2, Cursor: cursor, Sort: "name", Order: "asc"})
+		if err != nil {
+			t.Fatalf("page: %v", err)
+		}
+		for i := range page {
+			got = append(got, page[i].Name)
+		}
+		if next == "" {
+			break
+		}
+		cursor = next
+	}
+	if len(got) != 5 || got[0] != "main-x-md-worker-a" || got[4] != "rome01-md-worker-d" {
+		t.Fatalf("paged names %v", got)
+	}
+
+	// invalid sort → ErrInvalidSort
+	if _, _, err := pg.ListKubeNodeVMs(ctx, api.KubeNodeVMListFilter{}, api.ListPage{Sort: "nope"}); !errors.Is(err, api.ErrInvalidSort) {
+		t.Fatalf("invalid sort err = %v", err)
+	}
+}
+
+//nolint:gocyclo // flat table assertions over a small fixture; complexity is inherent
+func TestSummarizeKubeNodeVMs(t *testing.T) {
+	pg := newTestPG(t)
+	accountID := seedKubeNodeVMRows(t, pg)
+	rows, err := pg.SummarizeKubeNodeVMs(context.Background(), &accountID)
+	if err != nil {
+		t.Fatalf("summarize: %v", err)
+	}
+	byStatus := map[api.KubeNodeVMStatus]api.KubeNodeVMSummaryRow{}
+	for _, r := range rows {
+		byStatus[r.Status] = r
+	}
+	if byStatus["orphan"].Count != 2 || byStatus["orphan"].VCPU != 12 || byStatus["orphan"].MemoryGiB != 48 {
+		t.Fatalf("orphan summary %+v; want count 2, vcpu 12, mem 48", byStatus["orphan"])
+	}
+	if byStatus["unknown_cluster"].Count != 1 || byStatus["unknown_cluster"].VCPU != 0 {
+		t.Fatalf("unknown_cluster summary %+v; unparsable type must count 0 vcpu", byStatus["unknown_cluster"])
+	}
+	if byStatus["node"].Count != 1 || byStatus["pending"].Count != 1 {
+		t.Fatalf("node/pending summary %+v / %+v", byStatus["node"], byStatus["pending"])
+	}
+	// nil account = every account (at least ours)
+	all, err := pg.SummarizeKubeNodeVMs(context.Background(), nil)
+	if err != nil || len(all) < len(rows) {
+		t.Fatalf("all accounts: err=%v n=%d", err, len(all))
 	}
 }

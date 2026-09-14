@@ -3,7 +3,6 @@ package store
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -13,9 +12,6 @@ import (
 
 	"github.com/sthalbert/longue-vue/internal/api"
 )
-
-// SummarizeKubeNodeVMs is a temporary stub (ADR-0045 Task 2); see Task 6.
-var errKubeNodeVMsNotImplemented = errors.New("kube node vms: not implemented")
 
 const kubeNodeVMColumns = `k.id, k.cloud_account_id, ca.name, k.provider_vm_id, k.cluster_tag, k.node_name_tag,
 	k.cluster_hint, k.name, k.instance_type, k.power_state, k.zone, k.vpc_id, k.image_id, k.image_name,
@@ -143,16 +139,64 @@ func (p *PG) ReconcileKubeNodeVMs(
 	return res, nil
 }
 
-// ListKubeNodeVMs is a minimal implementation (CloudAccountID + Statuses
-// filters, no pagination) sufficient for Task 3's store tests; Task 6
-// replaces it with the full ADR-0042 list contract (name/cluster/instance
-// type/power state filters, pagination).
-func (p *PG) ListKubeNodeVMs(ctx context.Context, filter api.KubeNodeVMListFilter, _ api.ListPage) ([]api.KubeNodeVM, string, error) {
-	conds := []string{"1=1"}
-	args := []any{}
+var kubeNodeVMSortSpec = sortSpec{
+	columns: map[string]sortColumn{
+		sortKeyName:                 {expr: "LOWER(k.name)", kind: sortText},
+		sortKeyStatus:               {expr: "k.status", kind: sortText},
+		sortKeyInstanceType:         {expr: "LOWER(k.instance_type)", kind: sortText},
+		sortKeyPowerState:           {expr: "LOWER(k.power_state)", kind: sortText},
+		sortKeyStatusSince:          {expr: "k.status_since", kind: sortTime},
+		sortKeyFirstSeenAt:          {expr: "k.first_seen_at", kind: sortTime},
+		sortKeyLastSeenAt:           {expr: "k.last_seen_at", kind: sortTime},
+		sortKeyProviderCreationDate: {expr: "k.provider_creation_date", kind: sortTime, nullable: true},
+	},
+	defaultKey: sortKeyStatusSince,
+	defaultDir: dirDesc,
+}
+
+func kubeNodeVMSortVal(v *api.KubeNodeVM, key string) *string {
+	switch key {
+	case sortKeyName:
+		return sortValText(&v.Name)
+	case sortKeyStatus:
+		s := string(v.Status)
+		return &s
+	case sortKeyInstanceType:
+		return sortValText(&v.InstanceType)
+	case sortKeyPowerState:
+		return sortValText(&v.PowerState)
+	case sortKeyFirstSeenAt:
+		return sortValTime(&v.FirstSeenAt)
+	case sortKeyLastSeenAt:
+		return sortValTime(&v.LastSeenAt)
+	case sortKeyProviderCreationDate:
+		return sortValTime(v.ProviderCreationDate)
+	default:
+		return sortValTime(&v.StatusSince)
+	}
+}
+
+// ListKubeNodeVMs is the ADR-0042 list over kube_node_vms. Statuses empty =
+// no status predicate (the HTTP/MCP layers apply the orphan+unknown default).
+//
+//nolint:gocyclo // cursor-paginated query builder with optional filters
+func (p *PG) ListKubeNodeVMs(ctx context.Context, filter api.KubeNodeVMListFilter, page api.ListPage) ([]api.KubeNodeVM, string, error) {
+	limit := clampLimit(page.Limit, 500)
+	key, col, dir, err := kubeNodeVMSortSpec.resolve(page)
+	if err != nil {
+		return nil, "", err
+	}
+	sb := strings.Builder{}
+	sb.WriteString("SELECT " + kubeNodeVMColumns + kubeNodeVMFrom)
+	args := make([]any, 0, 8)
+	conds := make([]string, 0, 8)
 	if filter.CloudAccountID != nil {
 		args = append(args, *filter.CloudAccountID)
 		conds = append(conds, fmt.Sprintf("k.cloud_account_id = $%d", len(args)))
+	}
+	if filter.ClusterID != nil {
+		args = append(args, *filter.ClusterID)
+		conds = append(conds, fmt.Sprintf("k.cluster_id = $%d", len(args)))
 	}
 	if len(filter.Statuses) > 0 {
 		ss := make([]string, len(filter.Statuses))
@@ -162,26 +206,61 @@ func (p *PG) ListKubeNodeVMs(ctx context.Context, filter api.KubeNodeVMListFilte
 		args = append(args, ss)
 		conds = append(conds, fmt.Sprintf("k.status = ANY($%d)", len(args)))
 	}
-	q := "SELECT " + kubeNodeVMColumns + kubeNodeVMFrom +
-		" WHERE " + strings.Join(conds, " AND ") +
-		" ORDER BY k.status_since DESC, k.id DESC"
-	rows, err := p.pool.Query(ctx, q, args...)
+	if filter.ClusterHint != nil {
+		args = append(args, *filter.ClusterHint)
+		conds = append(conds, fmt.Sprintf("k.cluster_hint = $%d", len(args)))
+	}
+	if filter.InstanceType != nil {
+		args = append(args, *filter.InstanceType)
+		conds = append(conds, fmt.Sprintf("k.instance_type = $%d", len(args)))
+	}
+	if filter.PowerState != nil {
+		args = append(args, *filter.PowerState)
+		conds = append(conds, fmt.Sprintf("k.power_state = $%d", len(args)))
+	}
+	if filter.Name != nil {
+		args = append(args, namePattern(*filter.Name))
+		idx := len(args)
+		conds = append(conds, fmt.Sprintf("(LOWER(k.name) LIKE $%d ESCAPE '\\' OR LOWER(k.provider_vm_id) LIKE $%d ESCAPE '\\')", idx, idx))
+	}
+	if page.Cursor != "" {
+		val, cid, curErr := decodeListCursor(page.Cursor, key, dir)
+		if curErr != nil {
+			return nil, "", curErr
+		}
+		if curErr := keysetCond(col, "k.id", dir, val, cid, &conds, &args); curErr != nil {
+			return nil, "", curErr
+		}
+	}
+	if len(conds) > 0 {
+		sb.WriteString(" WHERE " + strings.Join(conds, " AND "))
+	}
+	args = append(args, limit+1)
+	fmt.Fprintf(&sb, " %s LIMIT $%d", orderBy(col, "k.id", dir), len(args))
+
+	rows, err := p.pool.Query(ctx, sb.String(), args...)
 	if err != nil {
 		return nil, "", fmt.Errorf("query kube node vms: %w", err)
 	}
 	defer rows.Close()
-	var out []api.KubeNodeVM
+	items := make([]api.KubeNodeVM, 0, limit)
 	for rows.Next() {
 		v, err := scanKubeNodeVM(rows)
 		if err != nil {
 			return nil, "", err
 		}
-		out = append(out, v)
+		items = append(items, v)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, "", fmt.Errorf("iterate kube node vms: %w", err)
 	}
-	return out, "", nil
+	var next string
+	if len(items) > limit {
+		last := &items[limit-1]
+		next = encodeListCursor(key, kubeNodeVMSortVal(last, key), last.ID, dir)
+		items = items[:limit]
+	}
+	return items, next, nil
 }
 
 func scanKubeNodeVM(row pgx.Row) (api.KubeNodeVM, error) {
@@ -194,7 +273,59 @@ func scanKubeNodeVM(row pgx.Row) (api.KubeNodeVM, error) {
 	return v, nil
 }
 
-// SummarizeKubeNodeVMs is a temporary stub; see Task 6.
-func (p *PG) SummarizeKubeNodeVMs(_ context.Context, _ *uuid.UUID) ([]api.KubeNodeVMSummaryRow, error) {
-	return nil, errKubeNodeVMsNotImplemented
+// SummarizeKubeNodeVMs groups rows per (account, status, instance_type) in
+// SQL and folds vCPU/RAM in Go via api.ParseInstanceType (unparsable
+// types count 0). nil accountID = all accounts.
+func (p *PG) SummarizeKubeNodeVMs(ctx context.Context, accountID *uuid.UUID) ([]api.KubeNodeVMSummaryRow, error) {
+	q := `SELECT k.cloud_account_id, ca.name, k.status, k.instance_type, count(*)
+	        FROM kube_node_vms k JOIN cloud_accounts ca ON ca.id = k.cloud_account_id`
+	args := []any{}
+	if accountID != nil {
+		args = append(args, *accountID)
+		q += " WHERE k.cloud_account_id = $1"
+	}
+	q += " GROUP BY k.cloud_account_id, ca.name, k.status, k.instance_type ORDER BY ca.name, k.status"
+	rows, err := p.pool.Query(ctx, q, args...)
+	if err != nil {
+		return nil, fmt.Errorf("summarize kube node vms: %w", err)
+	}
+	defer rows.Close()
+	type key struct {
+		acct   uuid.UUID
+		status api.KubeNodeVMStatus
+	}
+	agg := map[key]*api.KubeNodeVMSummaryRow{}
+	order := []key{}
+	for rows.Next() {
+		var (
+			acct   uuid.UUID
+			name   string
+			status string
+			itype  string
+			n      int
+		)
+		if err := rows.Scan(&acct, &name, &status, &itype, &n); err != nil {
+			return nil, fmt.Errorf("scan summary: %w", err)
+		}
+		k := key{acct, api.KubeNodeVMStatus(status)}
+		r, ok := agg[k]
+		if !ok {
+			r = &api.KubeNodeVMSummaryRow{CloudAccountID: acct, CloudAccountName: name, Status: k.status}
+			agg[k] = r
+			order = append(order, k)
+		}
+		r.Count += n
+		if vcpu, mem, ok := api.ParseInstanceType(itype); ok {
+			r.VCPU += vcpu * n
+			r.MemoryGiB += mem * n
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate summary: %w", err)
+	}
+	out := make([]api.KubeNodeVMSummaryRow, 0, len(order))
+	for _, k := range order {
+		out = append(out, *agg[k])
+	}
+	return out, nil
 }
