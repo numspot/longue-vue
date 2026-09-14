@@ -261,6 +261,15 @@ flowMatrix:
     # Prometheus ruleSelector).
     labels: {}
 
+kubeNodeVMs:
+  prometheusRules:
+    # -- Sample alerts for the kube-tagged VM gauges
+    # (longue_vue_kube_node_vms{status="orphan"|"unknown_cluster"}, ADR-0045).
+    # Disabled by default; enable only if you run the Prometheus Operator.
+    enabled: false
+    # -- Additional labels for the PrometheusRule.
+    labels: {}
+
 # -- DEPRECATED: legacy Ingress exposure. Removed in the next major chart version.
 #    Migrate to `httpRoute` above. Under Gateway API, TLS terminates on the Gateway
 #    listener (operator-owned), so `ingress.tls` has no Gateway-path equivalent here.

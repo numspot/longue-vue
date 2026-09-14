@@ -28,6 +28,9 @@ type Store interface {
 	// ClusterHeartbeats returns each live cluster's name + last_seen_at
 	// for the heartbeat gauges.
 	ClusterHeartbeats(ctx context.Context) ([]metrics.ClusterHeartbeat, error)
+	// KubeNodeVMCounts returns per-(account, status) counts for the
+	// kube-node-VM gauges (ADR-0045).
+	KubeNodeVMCounts(ctx context.Context) ([]metrics.KubeNodeVMCount, error)
 }
 
 // Refresher periodically recomputes store-derived gauges.
@@ -90,6 +93,7 @@ func (r *Refresher) refresh(ctx context.Context) {
 
 	r.refreshClusterHeartbeats(ctx)
 	r.refreshFlows(ctx)
+	r.refreshKubeNodeVMs(ctx)
 }
 
 // refreshFlows recomputes the flow-matrix gauges from the read-time synthesis.
@@ -173,4 +177,15 @@ func (r *Refresher) refreshClusterHeartbeats(ctx context.Context) {
 		}
 	}
 	metrics.SetClustersStale(n)
+}
+
+// refreshKubeNodeVMs exports the kube-tagged VM gauges. Best-effort: on a
+// query error the previous series are kept and a warning is logged.
+func (r *Refresher) refreshKubeNodeVMs(ctx context.Context) {
+	rows, err := r.store.KubeNodeVMCounts(ctx)
+	if err != nil {
+		slog.Warn("metrics refresher: kube node vm counts query failed", slog.Any("error", err))
+		return
+	}
+	metrics.SetKubeNodeVMs(rows)
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/sthalbert/longue-vue/internal/api"
+	"github.com/sthalbert/longue-vue/internal/metrics"
 )
 
 const kubeNodeVMColumns = `k.id, k.cloud_account_id, ca.name, k.provider_vm_id, k.cluster_tag, k.node_name_tag,
@@ -326,6 +327,19 @@ func (p *PG) SummarizeKubeNodeVMs(ctx context.Context, accountID *uuid.UUID) ([]
 	out := make([]api.KubeNodeVMSummaryRow, 0, len(order))
 	for _, k := range order {
 		out = append(out, *agg[k])
+	}
+	return out, nil
+}
+
+// KubeNodeVMCounts adapts SummarizeKubeNodeVMs for the metrics refresher.
+func (p *PG) KubeNodeVMCounts(ctx context.Context) ([]metrics.KubeNodeVMCount, error) {
+	rows, err := p.SummarizeKubeNodeVMs(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]metrics.KubeNodeVMCount, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, metrics.KubeNodeVMCount{CloudAccount: r.CloudAccountName, Status: string(r.Status), Count: r.Count, VCPU: r.VCPU})
 	}
 	return out, nil
 }

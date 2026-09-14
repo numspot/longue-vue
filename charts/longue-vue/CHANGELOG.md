@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.0](https://github.com/sthalbert/Longue-Vue/compare/chart-longue-vue-v0.27.0...chart-longue-vue-v0.28.0) (2026-09-14)
+
+
+### Features
+
+* **metrics:** add optional PrometheusRule for kube-tagged VM orphans (`kubeNodeVMs.prometheusRules`)
+
 ## [0.27.0](https://github.com/sthalbert/Longue-Vue/compare/chart-longue-vue-v0.26.1...chart-longue-vue-v0.27.0) (2026-08-19)
 
 

@@ -29,6 +29,10 @@ func (f *hbFakeStore) ClusterHeartbeats(context.Context) ([]metrics.ClusterHeart
 	return f.hbs, nil
 }
 
+func (f *hbFakeStore) KubeNodeVMCounts(context.Context) ([]metrics.KubeNodeVMCount, error) {
+	return nil, nil
+}
+
 // hbSettingsStore satisfies api.Store via the embedded nil interface and
 // overrides only GetSettings (same trick as flowFakeStore).
 type hbSettingsStore struct {

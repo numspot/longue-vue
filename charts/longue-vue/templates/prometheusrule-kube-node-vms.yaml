@@ -1,0 +1,32 @@
+{{- if .Values.kubeNodeVMs.prometheusRules.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "longue-vue.fullname" . }}-kube-node-vms
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "longue-vue.labels" . | nindent 4 }}
+    {{- with .Values.kubeNodeVMs.prometheusRules.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: kube-node-vms
+      rules:
+        - alert: KubeNodeVMOrphans
+          expr: longue_vue_kube_node_vms{status="orphan"} > 0
+          for: 6h
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{`{{ $value }}`}} orphan node VM(s) on cloud account {{`{{ $labels.cloud_account }}`}}"
+            description: "Cloud VMs tagged as Kubernetes nodes back no live node for more than the grace period — they are billed for nothing. List them in Longue-Vue (Node VMs page) and delete them cloud-side."
+        - alert: KubeNodeVMUnknownCluster
+          expr: longue_vue_kube_node_vms{status="unknown_cluster"} > 0
+          for: 24h
+          labels:
+            severity: info
+          annotations:
+            summary: "Kube-tagged VMs of a cluster not inventoried in Longue-Vue on {{`{{ $labels.cloud_account }}`}}"
+            description: "VMs carry a Kubernetes cluster tag but no node of that cluster is known to the CMDB: enrol the cluster collector or clean the VMs up."
+{{- end }}
