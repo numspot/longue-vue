@@ -703,6 +703,8 @@ Status may transition between `active` and `error` only; the collector cannot di
 | PATCH | `/v1/virtual-machines/{id}` | `write` | Curated metadata including `applications`. |
 | DELETE | `/v1/virtual-machines/{id}` | `delete` | Soft-delete. |
 | GET | `/v1/virtual-machines/applications/distinct` | `read` | Distinct products + versions for autocomplete. |
+| GET | `/v1/kube-node-vms` | `read` | Kube-tagged VMs and their reconciliation status (ADR-0045). Paginated, filters. |
+| GET | `/v1/kube-node-vms/summary` | `read` | Per-account, per-status counts. |
 
 **List VMs:**
 
@@ -884,11 +886,31 @@ curl -sS -H "Authorization: Bearer $TOKEN" \
 | `products[].product` | Normalized product name. |
 | `products[].versions` | Distinct version strings declared for this product across all VMs. |
 
+**Kube-tagged VM reconciliation (ADR-0045):**
+
+Cloud VMs carrying a Kubernetes cluster tag (`OscK8sClusterID/*` or `OscK8sNodeName`) are reported by the vm-collector alongside the OS-image backfill and reconciled server-side into `kube_node_vms`, with a status of `node`, `pending`, `orphan`, or `unknown_cluster` computed at ingest. `GET /v1/kube-node-vms` **defaults to `status=orphan,unknown_cluster`** when the `status` query param is omitted — the two statuses worth an operator's attention — not the full set. Pass `status` explicitly (repeatable) to see `node` and `pending` rows too.
+
+```bash
+# Orphans and unknown-cluster VMs (default), for one account:
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  'https://longue-vue.internal:8080/v1/kube-node-vms?cloud_account_id=<uuid>'
+
+# Every status, across all accounts:
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  'https://longue-vue.internal:8080/v1/kube-node-vms?status=node&status=pending&status=orphan&status=unknown_cluster'
+
+# Per-account, per-status counts (summary):
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  https://longue-vue.internal:8080/v1/kube-node-vms/summary
+```
+
+See [vm-collector — Kube-tagged VM reconciliation](vm-collector.md#kube-tagged-vm-reconciliation-adr-0045) for the payload fields and status semantics, and [ADR-0045](adr/adr-0045-kube-tagged-vm-reconciliation.md) for the design.
+
 ---
 
 ## MCP server (alternative query interface)
 
-longue-vue also exposes a [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server with 28 read-only tools that mirror the REST query surface. The MCP interface is designed for AI agents and supports SSE and stdio transports. It is **not** part of the REST API -- see [MCP Server](mcp-server.md) for setup, tool catalogue, and authentication details.
+longue-vue also exposes a [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server with 29 read-only tools that mirror the REST query surface. The MCP interface is designed for AI agents and supports SSE and stdio transports. It is **not** part of the REST API -- see [MCP Server](mcp-server.md) for setup, tool catalogue, and authentication details.
 
 ## References
 
