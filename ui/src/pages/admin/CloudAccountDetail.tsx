@@ -6,6 +6,7 @@ import { AsyncView, Dash, formatTs, KV, SectionTitle } from '../../components';
 import { CuratedMetadataCard } from '../../components/inventory/CuratedMetadataCard';
 import { ListSection } from '../../components/ListSection';
 import { CloudAccountStatusBadge } from './CloudAccounts';
+import { KubeNodeVMsBanner } from '../KubeNodeVMs';
 
 // CloudAccountDetail — admin-only drill-down for one cloud_account row.
 // Mirrors the shape of the Node detail page: identity card → curated
@@ -65,6 +66,8 @@ export default function CloudAccountDetail() {
               <h2>
                 {account.name} <CloudAccountStatusBadge status={account.status} />
               </h2>
+
+              <KubeNodeVMsBanner cloudAccountId={account.id} />
 
               <SectionTitle>Identity</SectionTitle>
               <dl className="kv-list">

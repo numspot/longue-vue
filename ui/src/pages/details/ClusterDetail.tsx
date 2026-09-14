@@ -13,6 +13,7 @@ import { ClusterIcon } from '../../icons';
 import { AsyncView, Dash, formatTs, KV, Labels, LayerPill } from '../../components';
 import { ListSection } from '../../components/ListSection';
 import { TabBar } from './shared';
+import { KubeNodeVMsBanner } from '../KubeNodeVMs';
 
 type ClusterTab = 'overview' | 'impact' | 'history';
 
@@ -168,6 +169,8 @@ export function ClusterDetail() {
                 </button>
               )}
             </h2>
+
+            <KubeNodeVMsBanner clusterId={cluster.id} />
 
             <TabBar
               active={activeTab}

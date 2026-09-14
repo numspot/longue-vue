@@ -1209,6 +1209,90 @@ export function listDistinctVMApplications() {
   );
 }
 
+// --- Kube node VMs (ADR-0045) ----------------------------------------------
+//
+// Reconciles cloud VMs tagged as Kubernetes nodes against the CMDB's own
+// node inventory: 'node' means the tag matches a live node, 'pending' is a
+// VM that just booted and hasn't reported in yet, 'orphan' backs no live
+// node at all (billed for nothing), and 'unknown_cluster' can't even be
+// matched to a known cluster.
+
+export type KubeNodeVMStatus = 'node' | 'pending' | 'orphan' | 'unknown_cluster';
+
+export interface KubeNodeVM {
+  id: string;
+  cloud_account_id: string;
+  cloud_account_name: string;
+  provider_vm_id: string;
+  cluster_tag: string;
+  node_name_tag: string;
+  cluster_hint: string;
+  name: string;
+  instance_type: string;
+  power_state: string;
+  zone: string;
+  vpc_id: string;
+  image_id: string;
+  image_name: string;
+  provider_creation_date?: string | null;
+  node_id?: string | null;
+  cluster_id?: string | null;
+  cluster_name?: string | null;
+  status: KubeNodeVMStatus;
+  status_since: string;
+  first_seen_at: string;
+  last_seen_at: string;
+}
+
+export interface KubeNodeVMSummaryRow {
+  cloud_account_id: string;
+  cloud_account_name: string;
+  status: KubeNodeVMStatus;
+  count: number;
+  vcpu: number;
+  memory_gib: number;
+}
+
+export interface KubeNodeVMListFilter {
+  cloud_account_id?: string;
+  cluster_id?: string;
+  status?: KubeNodeVMStatus[];
+  cluster_hint?: string;
+  instance_type?: string;
+  power_state?: string;
+  name?: string;
+  cursor?: string;
+  limit?: number;
+  sort?: string;
+  order?: 'asc' | 'desc';
+}
+
+export function listKubeNodeVMs(filter: KubeNodeVMListFilter = {}) {
+  const base = query({
+    limit: filter.limit ?? 100,
+    cursor: filter.cursor,
+    cloud_account_id: filter.cloud_account_id,
+    cluster_id: filter.cluster_id,
+    cluster_hint: filter.cluster_hint,
+    instance_type: filter.instance_type,
+    power_state: filter.power_state,
+    name: filter.name,
+    sort: filter.sort,
+    order: filter.order,
+  });
+  // status is repeatable; query() only handles scalars, so it's appended
+  // by hand here, joining onto whatever query() already produced.
+  const statuses = (filter.status ?? []).map((s) => `status=${encodeURIComponent(s)}`).join('&');
+  const qs = statuses ? (base ? `${base}&${statuses}` : `?${statuses}`) : base;
+  return request<PagedResponse<KubeNodeVM>>('/v1/kube-node-vms' + qs);
+}
+
+export function summarizeKubeNodeVMs(cloudAccountId?: string) {
+  return request<{ rows: KubeNodeVMSummaryRow[] }>(
+    '/v1/kube-node-vms/summary' + query({ cloud_account_id: cloudAccountId }),
+  );
+}
+
 // --- Applications + Application blocks (ADR-0029) -------------------------
 
 // ApplicationBlock is the optional grouping layer above Application — a

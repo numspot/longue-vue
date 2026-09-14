@@ -90,6 +90,10 @@ export const handlers = [
   http.patch('/v1/virtual-machines/:id', () => HttpResponse.json(fixtureVirtualMachine)),
   http.delete('/v1/virtual-machines/:id', () => new HttpResponse(null, { status: 204 })),
 
+  // --- kube node VMs (ADR-0045) ---
+  http.get('/v1/kube-node-vms', () => HttpResponse.json(paged([]))),
+  http.get('/v1/kube-node-vms/summary', () => HttpResponse.json({ rows: [] })),
+
   // --- applications + application blocks (ADR-0029) ---
   http.get('/v1/application-blocks', () => HttpResponse.json(paged([fixtureApplicationBlock]))),
   http.get('/v1/application-blocks/:id', () => HttpResponse.json(fixtureApplicationBlock)),
