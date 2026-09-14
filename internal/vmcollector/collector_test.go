@@ -379,21 +379,46 @@ func TestCollectorReportsErrorOnProviderFailure(t *testing.T) {
 	}
 }
 
-func TestBuildNodeImageMappings(t *testing.T) {
-	t.Parallel()
+func TestClusterHint(t *testing.T) {
+	cases := map[string]string{
+		"main-zex-preprod-md-worker-eu-west-2b-vx2lp-984mp":      "main-zex-preprod",
+		"dmz-zex-integ-ct-control-plane-2h2zf":                   "dmz-zex-integ",
+		"observability-zex-dev-md-worker-eu-west-2a-9cw5c-7jg52": "observability-zex-dev",
+		"vault_0":     "",
+		"":            "",
+		"md-worker-x": "", // empty prefix is not a hint
+	}
+	for in, want := range cases {
+		if got := clusterHint(in); got != want {
+			t.Errorf("clusterHint(%q) = %q; want %q", in, got, want)
+		}
+	}
+}
+
+func TestBuildKubeNodeVMs(t *testing.T) { //nolint:gocyclo // asserts every mapped field on both VMs; flat is clearer than factored helpers
+	created := time.Date(2025, 10, 27, 9, 0, 0, 0, time.UTC)
 	vms := []provider.VM{
-		{ProviderVMID: "i-1", ImageID: "ami-1", ImageName: "img-a"},
-		{ProviderVMID: "i-2", ImageID: "ami-2", ImageName: ""}, // dropped: no image name
-		{ProviderVMID: "i-3", ImageID: "ami-3", ImageName: "img-c"},
+		{
+			ProviderVMID: "i-1", Name: "main-x-md-worker-eu-west-2a-abc", ImageID: "ami-1", ImageName: "img-a",
+			InstanceType: "tinav7.c8r32p1", PowerState: "running", Zone: "eu-west-2a", VPCID: "vpc-1",
+			ProviderCreationDate: created,
+			Tags:                 map[string]string{"OscK8sClusterID/main-x-uuid": "owned", "Name": "main-x-md-worker-eu-west-2a-abc"},
+		},
+		// No image resolved: still sent (the reconciliation needs the VM even
+		// when the OS-image backfill cannot use it).
+		{ProviderVMID: "i-2", Name: "weird", Tags: map[string]string{"OscK8sNodeName": "ip-10-0-0-1"}},
 	}
-	got := buildNodeImageMappings(vms)
+	got := buildKubeNodeVMs(vms)
 	if len(got) != 2 {
-		t.Fatalf("got %d mappings; want 2 (%+v)", len(got), got)
+		t.Fatalf("got %d mappings; want 2", len(got))
 	}
-	if got[0].ProviderVMID != "i-1" || got[0].ImageName != "img-a" {
-		t.Fatalf("unexpected mapping[0]: %+v", got[0])
+	m := got[0]
+	if m.ProviderVMID != "i-1" || m.ClusterHint != "main-x" || m.ClusterTag != "main-x-uuid" ||
+		m.InstanceType != "tinav7.c8r32p1" || m.PowerState != "running" || m.Zone != "eu-west-2a" ||
+		m.VPCID != "vpc-1" || m.ImageName != "img-a" || m.ProviderCreationDate == nil || !m.ProviderCreationDate.Equal(created) {
+		t.Fatalf("unexpected mapping[0]: %+v", m)
 	}
-	if got[1].ProviderVMID != "i-3" {
+	if got[1].ClusterTag != "" || got[1].NodeNameTag != "ip-10-0-0-1" || got[1].ClusterHint != "" || got[1].ProviderCreationDate != nil {
 		t.Fatalf("unexpected mapping[1]: %+v", got[1])
 	}
 }
