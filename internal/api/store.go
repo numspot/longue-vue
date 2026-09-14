@@ -139,6 +139,7 @@ type Store interface {
 	CloudAccountStore
 	VirtualMachineStore
 	OSImageStore
+	KubeNodeVMStore
 	HistoryStore
 	ImageStore
 	ApplicationStore
@@ -864,6 +865,20 @@ type OSImageStore interface {
 	// non-terminated VM or an active node, with the distinct image ids and
 	// per-source counts. Ordered by image_name.
 	ListOSImages(ctx context.Context) ([]OSImage, error)
+}
+
+// KubeNodeVMStore covers the kube_node_vms reconciliation table (ADR-0045):
+// tracking kube-tagged VMs against cluster nodes to surface orphans and
+// unknown-cluster VMs.
+type KubeNodeVMStore interface {
+	// ReconcileKubeNodeVMs upserts the full per-tick set of kube-tagged VMs
+	// of one account, deletes rows absent from items, then recomputes the
+	// status of every row of the account with the given grace period.
+	ReconcileKubeNodeVMs(ctx context.Context, accountID uuid.UUID, items []NodeImage, grace time.Duration) (KubeNodeVMReconcileResult, error)
+	ListKubeNodeVMs(ctx context.Context, filter KubeNodeVMListFilter, page ListPage) ([]KubeNodeVM, string, error)
+	// SummarizeKubeNodeVMs aggregates per (cloud account, status); nil
+	// accountID = all accounts.
+	SummarizeKubeNodeVMs(ctx context.Context, accountID *uuid.UUID) ([]KubeNodeVMSummaryRow, error)
 }
 
 // HistoryStore covers time-travel history reads (ADR-0021 Phase 3).
