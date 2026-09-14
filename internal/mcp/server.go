@@ -91,6 +91,10 @@ type Store interface {
 	GetVirtualMachine(ctx context.Context, id uuid.UUID) (api.VirtualMachine, error)
 	ListDistinctVMApplications(ctx context.Context) ([]api.VMApplicationDistinct, error)
 
+	// Kube-tagged VMs (ADR-0045)
+	ListKubeNodeVMs(ctx context.Context, filter api.KubeNodeVMListFilter, page api.ListPage) ([]api.KubeNodeVM, string, error)
+	SummarizeKubeNodeVMs(ctx context.Context, accountID *uuid.UUID) ([]api.KubeNodeVMSummaryRow, error)
+
 	// Image versions (ADR-0022)
 	ListImageVersionsByRepo(ctx context.Context, lp api.ImageVersionListParams) ([]api.ImageVersionRepoView, string, error)
 	GetImageVersionsByRepo(ctx context.Context, imageRepo string) ([]api.ImageVersionRow, error)

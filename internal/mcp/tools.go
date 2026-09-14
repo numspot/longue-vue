@@ -232,6 +232,27 @@ func (s *Server) registerTools() {
 
 	s.mcp.AddTool(
 		mcp.NewTool(
+			"list_kube_node_vms",
+			mcp.WithDescription(
+				"List cloud VMs tagged as Kubernetes nodes with their reconciliation status (ADR-0045). "+
+					"Defaults to orphan + unknown_cluster: VMs that back no live node and cost money for nothing.",
+			),
+			mcp.WithString("cloud_account_id", mcp.Description("Filter by cloud account UUID (optional)")),
+			mcp.WithString("cluster_id", mcp.Description("Filter by CMDB cluster UUID (optional)")),
+			mcp.WithString(
+				"status",
+				mcp.Description("Comma-separated statuses among node, pending, orphan, unknown_cluster (default: orphan,unknown_cluster)"),
+			),
+			mcp.WithString("cluster_hint", mcp.Description("Exact cluster name derived from the machine name, e.g. main-zex-preprod (optional)")),
+			mcp.WithString("instance_type", mcp.Description("Exact instance type, e.g. tinav7.c8r32p1 (optional)")),
+			mcp.WithString("power_state", mcp.Description("Exact power state (optional)")),
+			mcp.WithString("name", mcp.Description("Case-insensitive substring on VM name or provider VM id (optional)")),
+		),
+		s.handleListKubeNodeVMs,
+	)
+
+	s.mcp.AddTool(
+		mcp.NewTool(
 			"search_images",
 			mcp.WithDescription("Search for workloads and pods running a specific container image"),
 			mcp.WithString("query", mcp.Required(), mcp.Description("Container image name or substring to search for")),
@@ -1135,7 +1156,124 @@ func (s *Server) handleGetCloudAccount(ctx context.Context, request mcp.CallTool
 	if err != nil {
 		return storeError("cloud account", err)
 	}
-	return jsonResult(redactCloudAccount(acct))
+	summary := map[string]int{"node": 0, "pending": 0, "orphan": 0, "unknown_cluster": 0}
+	if rows, serr := s.store.SummarizeKubeNodeVMs(ctx, &id); serr == nil {
+		for _, r := range rows {
+			summary[string(r.Status)] = r.Count
+		}
+	} else {
+		slog.Warn("mcp get_cloud_account: kube node vm summary failed", slog.Any("error", serr))
+	}
+	out := map[string]any{}
+	raw, merr := json.Marshal(redactCloudAccount(acct))
+	if merr != nil {
+		return nil, fmt.Errorf("marshal cloud account: %w", merr)
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, fmt.Errorf("unmarshal cloud account: %w", err)
+	}
+	out["kube_node_vms"] = summary
+	return jsonResult(out)
+}
+
+// kubeNodeVMStatusFields maps the MCP string filter keys of a KubeNodeVM
+// list request to their destination field, mirroring the REST handler's
+// kubeNodeVMStringFields (internal/api/kube_node_vm_handlers.go).
+var kubeNodeVMStatusFields = []struct {
+	key string
+	dst func(*api.KubeNodeVMListFilter) **string
+}{
+	{"cluster_hint", func(f *api.KubeNodeVMListFilter) **string { return &f.ClusterHint }},
+	{"instance_type", func(f *api.KubeNodeVMListFilter) **string { return &f.InstanceType }},
+	{"power_state", func(f *api.KubeNodeVMListFilter) **string { return &f.PowerState }},
+	{"name", func(f *api.KubeNodeVMListFilter) **string { return &f.Name }},
+}
+
+// parseKubeNodeVMStatuses fills f.Statuses from the comma-separated
+// "status" MCP arg, defaulting to orphan+unknown_cluster when absent.
+// Split out of buildKubeNodeVMFilter to keep its cyclomatic complexity down.
+func parseKubeNodeVMStatuses(request mcp.CallToolRequest, f *api.KubeNodeVMListFilter) (string, error) {
+	statuses := request.GetString("status", "")
+	if statuses == "" {
+		f.Statuses = []api.KubeNodeVMStatus{api.KubeNodeVMStatusOrphan, api.KubeNodeVMStatusUnknownCluster}
+		return "", nil
+	}
+	for _, raw := range strings.Split(statuses, ",") {
+		st := api.KubeNodeVMStatus(strings.TrimSpace(raw))
+		switch st {
+		case api.KubeNodeVMStatusNode, api.KubeNodeVMStatusPending, api.KubeNodeVMStatusOrphan, api.KubeNodeVMStatusUnknownCluster:
+			f.Statuses = append(f.Statuses, st)
+		default:
+			return "invalid status " + string(st), errRequiredField
+		}
+	}
+	return "", nil
+}
+
+// buildKubeNodeVMFilter parses optional MCP request args into a
+// KubeNodeVMListFilter (ADR-0045). Defaults status to orphan+unknown_cluster
+// when the caller does not specify one, mirroring the REST handler
+// (internal/api/kube_node_vm_handlers.go).
+func buildKubeNodeVMFilter(request mcp.CallToolRequest) (api.KubeNodeVMListFilter, string, error) {
+	var f api.KubeNodeVMListFilter
+	if v := request.GetString("cloud_account_id", ""); v != "" {
+		id, err := uuid.Parse(v)
+		if err != nil {
+			return f, "invalid cloud_account_id", fmt.Errorf("parse cloud_account_id: %w", err)
+		}
+		f.CloudAccountID = &id
+	}
+	if v := request.GetString("cluster_id", ""); v != "" {
+		id, err := uuid.Parse(v)
+		if err != nil {
+			return f, "invalid cluster_id", fmt.Errorf("parse cluster_id: %w", err)
+		}
+		f.ClusterID = &id
+	}
+	if problem, err := parseKubeNodeVMStatuses(request, &f); err != nil {
+		return f, problem, err
+	}
+	for _, p := range kubeNodeVMStatusFields {
+		if v := request.GetString(p.key, ""); v != "" {
+			if len(v) > mcpVMAccountMaxLen {
+				return f, p.key + " too long", errRequiredField
+			}
+			s := v
+			*p.dst(&f) = &s
+		}
+	}
+	return f, "", nil
+}
+
+func (s *Server) handleListKubeNodeVMs(ctx context.Context, request mcp.CallToolRequest) (resp *mcp.CallToolResult, retErr error) {
+	args := map[string]any{
+		"cloud_account_id": presence(request.GetString("cloud_account_id", "")),
+		"cluster_id":       presence(request.GetString("cluster_id", "")),
+		"status":           presence(request.GetString("status", "")),
+		"cluster_hint":     presence(request.GetString("cluster_hint", "")),
+		"instance_type":    presence(request.GetString("instance_type", "")),
+		"power_state":      presence(request.GetString("power_state", "")),
+		"name":             presence(request.GetString("name", "")),
+	}
+	var err error
+	if ctx, err = s.checkAccess(ctx, request); err != nil {
+		return s.recordCheckAccessFailure(ctx, "list_kube_node_vms", args, err), nil
+	}
+	defer s.finishDeferred(ctx, "list_kube_node_vms", args, &resp, &retErr)
+	start := time.Now()
+	defer func() { metrics.ObserveMCPToolCall("list_kube_node_vms", time.Since(start)) }()
+
+	filter, problem, err := buildKubeNodeVMFilter(request)
+	if err != nil {
+		return mcp.NewToolResultError(problem), nil
+	}
+	items, err := collectAll(ctx, func(ctx context.Context, cursor string) ([]api.KubeNodeVM, string, error) {
+		return s.store.ListKubeNodeVMs(ctx, filter, api.ListPage{Limit: maxPageSize, Cursor: cursor})
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list kube node vms: %w", err)
+	}
+	return jsonResult(items)
 }
 
 // --- helpers ----------------------------------------------------------------
