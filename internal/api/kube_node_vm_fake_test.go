@@ -22,7 +22,6 @@ var kubeNodeVMFake = struct {
 	err         error
 }{}
 
-//nolint:unused // wired up by the Task 6 handler tests that reset fixtures between cases
 func resetKubeNodeVMFake() {
 	kubeNodeVMFake.mu.Lock()
 	defer kubeNodeVMFake.mu.Unlock()
