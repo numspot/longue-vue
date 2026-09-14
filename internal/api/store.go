@@ -1226,6 +1226,7 @@ type Settings struct {
 	FlowMatrixEnabled       bool      `json:"flow_matrix_enabled"`
 	PoliciesEnabled         bool      `json:"policies_enabled"`
 	ClusterStaleAfterDays   int       `json:"cluster_stale_after_days"`
+	KubeNodeVMGraceHours    int       `json:"kube_node_vm_grace_hours"`
 	UpdatedAt               time.Time `json:"updated_at"`
 }
 
@@ -1241,6 +1242,7 @@ type SettingsPatch struct {
 	FlowMatrixEnabled       *bool `json:"flow_matrix_enabled,omitempty"`
 	PoliciesEnabled         *bool `json:"policies_enabled,omitempty"`
 	ClusterStaleAfterDays   *int  `json:"cluster_stale_after_days,omitempty"`
+	KubeNodeVMGraceHours    *int  `json:"kube_node_vm_grace_hours,omitempty"`
 }
 
 // ImageVersionRow is a row from image_versions — one (image_repo, variant) pair

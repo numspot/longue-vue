@@ -352,6 +352,10 @@ func run() error { //nolint:gocyclo // daemon bootstrap; flat structure is clear
 		return fmt.Errorf("cluster stale setting: %w", err)
 	}
 
+	if err := seedKubeNodeVMGraceSetting(rootCtx, pg); err != nil {
+		return fmt.Errorf("kube node vm grace setting: %w", err)
+	}
+
 	if err := seedPoliciesSetting(rootCtx, pg); err != nil {
 		return fmt.Errorf("policies setting: %w", err)
 	}
@@ -1499,6 +1503,28 @@ func seedClusterStaleSetting(ctx context.Context, s api.Store) error {
 	}
 	if _, err := s.UpdateSettings(ctx, api.SettingsPatch{ClusterStaleAfterDays: &days}); err != nil {
 		slog.Warn("cluster staleness: failed to seed settings from env", slog.Any("error", err))
+	}
+	return nil
+}
+
+// errKubeNodeVMGraceInvalid is the static sentinel wrapped into the
+// boot-failure error returned by seedKubeNodeVMGraceSetting (err113).
+var errKubeNodeVMGraceInvalid = errors.New("LONGUE_VUE_KUBE_NODE_VM_GRACE_HOURS must be a non-negative integer")
+
+// seedKubeNodeVMGraceSetting seeds `kube_node_vm_grace_hours` from the
+// LONGUE_VUE_KUBE_NODE_VM_GRACE_HOURS env var when explicitly set,
+// mirroring seedClusterStaleSetting (ADR-0045). 0 classifies immediately.
+func seedKubeNodeVMGraceSetting(ctx context.Context, s api.Store) error {
+	envVal := os.Getenv("LONGUE_VUE_KUBE_NODE_VM_GRACE_HOURS")
+	if envVal == "" {
+		return nil
+	}
+	hours, err := strconv.Atoi(envVal)
+	if err != nil || hours < 0 {
+		return fmt.Errorf("parse LONGUE_VUE_KUBE_NODE_VM_GRACE_HOURS=%q: %w", envVal, errKubeNodeVMGraceInvalid)
+	}
+	if _, err := s.UpdateSettings(ctx, api.SettingsPatch{KubeNodeVMGraceHours: &hours}); err != nil {
+		slog.Warn("kube node vms: failed to seed grace setting from env", slog.Any("error", err))
 	}
 	return nil
 }
