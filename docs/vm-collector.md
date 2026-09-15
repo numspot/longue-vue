@@ -59,6 +59,25 @@ All configuration is via environment variables.
 | `LONGUE_VUE_VM_COLLECTOR_CREDENTIAL_REFRESH` | no | `1h` | How often to re-fetch credentials from longue-vue. Lower this if you rotate AK/SK frequently. |
 | `LONGUE_VUE_VM_COLLECTOR_METRICS_ADDR` | no | `127.0.0.1:9090` | Listen address for the `/metrics` endpoint. **Set to `0.0.0.0:9090` when running in Kubernetes** so the kubelet can reach the liveness probe. |
 
+### Kube-tagged VM reconciliation (ADR-0045)
+
+The pre-filter that drops kube-tagged VMs (`OscK8sClusterID/*`, `OscK8sNodeName`) does not throw them away: every one of them is sent to `POST /v1/ingest/cloud-accounts/{id}/node-images` alongside the OS-image backfill (ADR-0040), with an enriched payload — `name`, `cluster_tag` (from `OscK8sClusterID/<tag>`), `node_name_tag`, `cluster_hint` (the CAPO cluster name derived from the machine name, e.g. `<cluster>-md-worker-<zone>-…` or `<cluster>-ct-control-plane-…`), `instance_type`, `power_state`, `zone`, `vpc_id`, and `provider_creation_date`. Older collectors keep sending only the three OS-image fields; longue-vue then classifies those VMs as `node`, `pending`, or — once the grace elapses — `unknown_cluster`; never a false `orphan`.
+
+On the server, each reported VM is upserted into `kube_node_vms` and classified in the same ingest transaction:
+
+| Status | Meaning |
+|--------|---------|
+| `node` | A live `nodes` row has this VM id as its `provider_id` suffix. |
+| `pending` | No matching node yet, but the VM is younger than the grace period — most likely still bootstrapping. |
+| `orphan` | No matching node, grace elapsed, and a sibling VM (same `cluster_hint` or exact `cluster_tag`) is a live node — the cluster exists but this VM does not belong to it anymore. |
+| `unknown_cluster` | No matching node, grace elapsed, and no sibling is a live node either — the cluster itself is not enrolled in (or has vanished from) the CMDB. |
+
+The grace period is `settings.kube_node_vm_grace_hours` (default 24, seeded from `LONGUE_VUE_KUBE_NODE_VM_GRACE_HOURS`), API-only — hot-editable via `PATCH /v1/admin/settings`, no UI field (same pattern as `cluster_stale_after_days`, ADR-0044). A `kube_node_vms` row absent from a tick's payload is deleted, so a VM that disappears cloud-side drops out immediately rather than lingering as a stale orphan.
+
+To exclude a VM from this reconciliation entirely (and from the collector altogether), tag it `longue-vue.io/ignore=true` — the same operator escape hatch the collector's main pre-filter honours (ADR-0015 §8).
+
+See [ADR-0045](adr/adr-0045-kube-tagged-vm-reconciliation.md), `GET /v1/kube-node-vms` in the [API reference](api-reference.md#cloud-accounts-and-virtual-machines-adr-0015), and the `list_kube_node_vms` MCP tool in the [MCP server docs](mcp-server.md).
+
 ### TLS and gateway
 
 | Variable | Required | Default | Description |

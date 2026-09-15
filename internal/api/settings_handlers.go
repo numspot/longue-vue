@@ -42,6 +42,10 @@ func HandleUpdateSettings(store Store) http.HandlerFunc {
 			http.Error(w, "invalid JSON body", http.StatusBadRequest)
 			return
 		}
+		if patch.KubeNodeVMGraceHours != nil && *patch.KubeNodeVMGraceHours < 0 {
+			http.Error(w, "kube_node_vm_grace_hours must be >= 0", http.StatusBadRequest)
+			return
+		}
 		settings, err := store.UpdateSettings(r.Context(), patch)
 		if err != nil {
 			slog.Error("update settings failed", slog.Any("error", err))

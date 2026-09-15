@@ -18,6 +18,7 @@ func (p *PG) GetSettings(ctx context.Context) (api.Settings, error) {
 		image_versions_enabled,
 		flow_matrix_enabled,
 		cluster_stale_after_days,
+		kube_node_vm_grace_hours,
 		policies_enabled,
 		updated_at FROM settings WHERE id = 1`
 	var s api.Settings
@@ -27,6 +28,7 @@ func (p *PG) GetSettings(ctx context.Context) (api.Settings, error) {
 		&s.ImageVersionsEnabled,
 		&s.FlowMatrixEnabled,
 		&s.ClusterStaleAfterDays,
+		&s.KubeNodeVMGraceHours,
 		&s.PoliciesEnabled,
 		&s.UpdatedAt,
 	); err != nil {
@@ -37,7 +39,7 @@ func (p *PG) GetSettings(ctx context.Context) (api.Settings, error) {
 
 // UpdateSettings applies the merge-patch on the settings row.
 //
-//nolint:gocyclo // merge-patch nil checks are inherently repetitive
+//nolint:gocyclo,gocritic // merge-patch nil checks are inherently repetitive; hugeParam signature matches the api.Store interface
 func (p *PG) UpdateSettings(ctx context.Context, in api.SettingsPatch) (api.Settings, error) {
 	sets := make([]string, 0, 6)
 	args := make([]any, 0, 6)
@@ -81,6 +83,11 @@ func (p *PG) UpdateSettings(ctx context.Context, in api.SettingsPatch) (api.Sett
 	if in.ClusterStaleAfterDays != nil {
 		sets = append(sets, fmt.Sprintf("cluster_stale_after_days=$%d", idx))
 		args = append(args, *in.ClusterStaleAfterDays)
+		idx++
+	}
+	if in.KubeNodeVMGraceHours != nil {
+		sets = append(sets, fmt.Sprintf("kube_node_vm_grace_hours=$%d", idx))
+		args = append(args, *in.KubeNodeVMGraceHours)
 		idx++
 	}
 	if in.PoliciesEnabled != nil {

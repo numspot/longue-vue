@@ -264,6 +264,18 @@ var (
 		Name: "longue_vue_clusters_stale",
 		Help: "Clusters whose collector heartbeat exceeds the staleness threshold.",
 	})
+
+	// kubeNodeVMs counts kube-tagged VMs per cloud account and
+	// reconciliation status (ADR-0045). Refreshed by metricsrefresh.
+	kubeNodeVMs = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "longue_vue_kube_node_vms",
+		Help: "Kube-tagged cloud VMs per cloud account and reconciliation status (node, pending, orphan, unknown_cluster).",
+	}, []string{"cloud_account", "status"})
+	// kubeNodeVMsVCPU sums the vCPU of those VMs — a cost proxy.
+	kubeNodeVMsVCPU = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "longue_vue_kube_node_vms_vcpu",
+		Help: "Sum of vCPU of kube-tagged cloud VMs per cloud account and reconciliation status.",
+	}, []string{"cloud_account", "status"})
 )
 
 func init() {
@@ -303,6 +315,8 @@ func init() {
 		flowDanglingRefs,
 		clusterLastSeen,
 		clustersStale,
+		kubeNodeVMs,
+		kubeNodeVMsVCPU,
 	)
 }
 
@@ -354,6 +368,28 @@ func SetClusterHeartbeats(rows []ClusterHeartbeat) {
 // SetClustersStale sets the stale-cluster count gauge.
 func SetClustersStale(n int) {
 	clustersStale.Set(float64(n))
+}
+
+// KubeNodeVMCount is one (cloud account, status) bucket for the
+// kube-node-VM gauges.
+type KubeNodeVMCount struct {
+	CloudAccount string
+	Status       string
+	Count        int
+	VCPU         int
+}
+
+// SetKubeNodeVMs replaces every longue_vue_kube_node_vms* series with the
+// given buckets. Called from the metrics-refresh loop; resetting first
+// guarantees a bucket that vanished (account gone, status emptied) does not
+// keep its last value.
+func SetKubeNodeVMs(rows []KubeNodeVMCount) {
+	kubeNodeVMs.Reset()
+	kubeNodeVMsVCPU.Reset()
+	for _, r := range rows {
+		kubeNodeVMs.WithLabelValues(r.CloudAccount, r.Status).Set(float64(r.Count))
+		kubeNodeVMsVCPU.WithLabelValues(r.CloudAccount, r.Status).Set(float64(r.VCPU))
+	}
 }
 
 // SetDICTCoverage sets the per-source workload effective-DICT coverage gauge

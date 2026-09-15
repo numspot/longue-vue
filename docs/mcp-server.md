@@ -52,7 +52,7 @@ For the **stdio** transport (local agent on the same machine), set `LONGUE_VUE_M
 
 ## Available tools
 
-All tools are read-only. List tools return up to 1000 items (silently truncated beyond that). There are 28 tools total.
+All tools are read-only. List tools return up to 1000 items (silently truncated beyond that). There are 29 tools total.
 
 ### Kubernetes inventory
 
@@ -90,6 +90,9 @@ All tools are read-only. List tools return up to 1000 items (silently truncated 
 | `list_virtual_machines` | `cloud_account_id` (optional, UUID), `power_state` (optional), `name` (optional, substring), `application` (optional, normalized product) | Platform VMs matching filters |
 | `get_virtual_machine` | `id` (required, UUID) | Single VM detail including applications list and EOL annotations |
 | `list_vm_applications_distinct` | _(none)_ | Distinct normalized product names across the fleet with their declared version strings |
+| `list_kube_node_vms` | `cloud_account_id` (optional, UUID), `cluster_id` (optional, UUID), `status` (optional, comma-separated among `node`, `pending`, `orphan`, `unknown_cluster`; default `orphan,unknown_cluster`), `cluster_hint` (optional), `instance_type` (optional), `power_state` (optional), `name` (optional, substring) | Kube-tagged cloud VMs with their reconciliation status (ADR-0045) — defaults to the VMs worth an operator's attention: orphans and VMs of an unenrolled cluster |
+
+`get_cloud_account` also returns a `kube_node_vms` field: a `{node, pending, orphan, unknown_cluster}` count map for that account (ADR-0045), so an agent can spot a FinOps problem without a second call.
 
 ### Container image versions (ADR-0022)
 

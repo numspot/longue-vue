@@ -65,4 +65,9 @@ const (
 	sortKeySummaryWarn  = "summary_warn"
 	sortKeySummaryError = "summary_error"
 	sortKeySummarySkip  = "summary_skip"
+
+	// Kube node VM sort keys (ADR-0042/ADR-0045).
+	sortKeyStatusSince          = "status_since"
+	sortKeyFirstSeenAt          = "first_seen_at"
+	sortKeyProviderCreationDate = "provider_creation_date"
 )

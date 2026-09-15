@@ -101,6 +101,7 @@ no dependency on the React SPA bundle.
 - AK plaintext (public identifier); SK encrypted. Plaintext SK only ever leaves via `GET /v1/cloud-accounts/by-{name,id}/{x}/credentials` — audit-logged, response body never captured.
 - `virtual_machines.applications` JSONB (curator-only; collector never writes it). GIN `jsonb_path_ops` index. Soft-delete via `terminated_at`; reconcile never hard-deletes.
 - VM list filters: `cloud_account_id|name`, `region`, `role`, `power_state`, `include_terminated`, `name`, `image`, `application`, `application_version`. LIKE metacharacters escaped; product names normalized server-side.
+- **Kube-tagged VM reconciliation (ADR-0045)**: `kube_node_vms` table fed by the node-images ingest; status node/pending/orphan/unknown_cluster computed at ingest; grace in `settings.kube_node_vm_grace_hours`; `GET /v1/kube-node-vms` defaults to orphan+unknown_cluster; gauges `longue_vue_kube_node_vms{cloud_account,status}`.
 
 ## Settings + feature toggles
 

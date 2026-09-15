@@ -71,6 +71,8 @@ These metrics are exposed by longue-vue (not the vm-collector). For vm-collector
 | `longue_vue_cloud_accounts_pending_credentials` | gauge | -- | Count of accounts in `status=pending_credentials`. A non-zero value means a collector is registered but admin has not supplied AK/SK. |
 | `longue_vue_virtual_machines_total` | gauge | `cloud_account`, `terminated` | Number of virtual machines, per cloud account name and tombstone state. |
 | `longue_vue_cloud_accounts_credentials_reads_total` | counter | `cloud_account` | Successful credential fetches via `GET /v1/cloud-accounts/.../credentials`, per account. |
+| `longue_vue_kube_node_vms` | gauge | `cloud_account`, `status` | Kube-tagged cloud VMs per cloud account and reconciliation status (`node`, `pending`, `orphan`, `unknown_cluster`), computed at ingest (ADR-0045). |
+| `longue_vue_kube_node_vms_vcpu` | gauge | `cloud_account`, `status` | Sum of vCPU (parsed from instance type) of those VMs, per cloud account and status — a cost proxy for orphaned node VMs. |
 
 ### Auth verify (ingest gateway)
 
@@ -192,6 +194,25 @@ server and covers pull and push collectors alike:
   annotations:
     summary: "{{ $value }} longue-vue cluster(s) with no collector heartbeat"
     description: "Check /clusters with the 'Stale only' filter, or longue_vue_cluster_last_seen_timestamp_seconds for the culprit."
+```
+
+### Orphan kube-tagged VMs
+
+Fire when a cloud VM tagged as a Kubernetes node backs no live node past the
+grace period — billed for nothing. Shipped as the optional Helm
+`kubeNodeVMs.prometheusRules` PrometheusRule (disabled by default; alongside
+a 24h-info `KubeNodeVMUnknownCluster` counterpart for kube-tagged VMs whose
+cluster isn't enrolled at all):
+
+```yaml
+- alert: KubeNodeVMOrphans
+  expr: longue_vue_kube_node_vms{status="orphan"} > 0
+  for: 6h
+  labels:
+    severity: warning
+  annotations:
+    summary: "{{ $value }} orphan node VM(s) on cloud account {{ $labels.cloud_account }}"
+    description: "Cloud VMs tagged as Kubernetes nodes back no live node for more than the grace period — they are billed for nothing. List them in Longue-Vue (Node VMs page) and delete them cloud-side."
 ```
 
 ### Collector errors

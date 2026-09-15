@@ -32,6 +32,7 @@ import { ClusterPolicies, PolicyReports } from './pages/Policies';
 import Flows from './pages/Flows';
 import VirtualMachines from './pages/VirtualMachines';
 import VirtualMachineDetail from './pages/VirtualMachineDetail';
+import KubeNodeVMs from './pages/KubeNodeVMs';
 import OSImages from './pages/OSImages';
 import Applications from './pages/Applications';
 import ApplicationDetail from './pages/ApplicationDetail';
@@ -166,6 +167,7 @@ function Chrome({ me, children }: { me: api.Me; children: React.ReactNode }) {
           <div className="sidebar-divider" />
           <span className="sidebar-section-label">Cloud Infrastructure</span>
           {link('/virtual-machines', 'Virtual Machines', VirtualMachineIcon)}
+          {link('/kube-node-vms', 'Node VMs', VirtualMachineIcon)}
           {link('/os-images', 'OS Images', ContainerImageIcon)}
           <div className="sidebar-divider" />
           <span className="sidebar-section-label">Tools</span>
@@ -271,6 +273,7 @@ export default function App() {
 
       <Route path="/virtual-machines" element={authed(<VirtualMachines />)} />
       <Route path="/virtual-machines/:id" element={authed(<VirtualMachineDetail />)} />
+      <Route path="/kube-node-vms" element={authed(<KubeNodeVMs />)} />
       <Route path="/os-images" element={authed(<OSImages />)} />
 
       {/* ADR-0029: applications sit alongside Kubernetes + VMs as a

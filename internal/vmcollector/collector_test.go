@@ -27,6 +27,7 @@ type fakeStore struct {
 	sweptAttachments   []apiclient.SGAttachment
 	sweptSeenIDs       []string
 	backedupNodeImages []apiclient.NodeImageMapping
+	backfillCalls      int
 }
 
 type reconcileCall struct {
@@ -118,6 +119,7 @@ func (f *fakeStore) SweepSecurityGroups(
 func (f *fakeStore) BackfillNodeImages(_ context.Context, _ uuid.UUID, images []apiclient.NodeImageMapping) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.backfillCalls++
 	f.backedupNodeImages = append(f.backedupNodeImages, images...)
 	return nil
 }
@@ -243,6 +245,48 @@ func TestCollectorTickEndToEnd(t *testing.T) {
 	last := store.statusUpdates[len(store.statusUpdates)-1]
 	if last.status != "active" || last.lastSeenAt == nil {
 		t.Errorf("last status update = %+v", last)
+	}
+}
+
+// TestTick_PostsEmptyKubeNodeVMBatchWhenNoneListed pins the full-set
+// delete semantics fix (finding 2, 2026-09-14 review): the collector must
+// always POST the kube-tagged-VM batch after a successful ListVMs, even
+// when it is empty, so the server's ADR-0045 full-set delete fires the
+// tick an account's last kube-tagged VM disappears (an empty payload is a
+// no-op for the ADR-0040 backfill half). Before the fix, a `len(...) > 0`
+// guard skipped the call entirely in this case.
+func TestTick_PostsEmptyKubeNodeVMBatchWhenNoneListed(t *testing.T) {
+	t.Parallel()
+	store := newFakeStore()
+	store.credsByName["x"] = apiclient.Credentials{
+		AccessKey: "ak", SecretKey: "sk", Region: "eu-west-2", Provider: "outscale",
+	}
+	fakeProv := &provider.Fake{
+		VMs: []provider.VM{
+			// No kube-tagged VM this tick — the last one was decommissioned.
+			{ProviderVMID: "i-app1", Name: "app", PowerState: "running"},
+		},
+	}
+	c := New(Config{
+		Provider:    "outscale",
+		AccountName: "x",
+		Region:      "eu-west-2",
+		Interval:    1 * time.Hour,
+		Reconcile:   true,
+	}, store, func(_ apiclient.Credentials) (provider.Provider, error) {
+		return fakeProv, nil
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c.runOnce(ctx)
+
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if store.backfillCalls != 1 {
+		t.Fatalf("BackfillNodeImages calls = %d, want 1 (must POST even an empty batch)", store.backfillCalls)
+	}
+	if len(store.backedupNodeImages) != 0 {
+		t.Fatalf("backedupNodeImages = %v, want empty batch", store.backedupNodeImages)
 	}
 }
 
@@ -379,21 +423,46 @@ func TestCollectorReportsErrorOnProviderFailure(t *testing.T) {
 	}
 }
 
-func TestBuildNodeImageMappings(t *testing.T) {
-	t.Parallel()
+func TestClusterHint(t *testing.T) {
+	cases := map[string]string{
+		"main-zex-preprod-md-worker-eu-west-2b-vx2lp-984mp":      "main-zex-preprod",
+		"dmz-zex-integ-ct-control-plane-2h2zf":                   "dmz-zex-integ",
+		"observability-zex-dev-md-worker-eu-west-2a-9cw5c-7jg52": "observability-zex-dev",
+		"vault_0":     "",
+		"":            "",
+		"md-worker-x": "", // empty prefix is not a hint
+	}
+	for in, want := range cases {
+		if got := clusterHint(in); got != want {
+			t.Errorf("clusterHint(%q) = %q; want %q", in, got, want)
+		}
+	}
+}
+
+func TestBuildKubeNodeVMs(t *testing.T) { //nolint:gocyclo // asserts every mapped field on both VMs; flat is clearer than factored helpers
+	created := time.Date(2025, 10, 27, 9, 0, 0, 0, time.UTC)
 	vms := []provider.VM{
-		{ProviderVMID: "i-1", ImageID: "ami-1", ImageName: "img-a"},
-		{ProviderVMID: "i-2", ImageID: "ami-2", ImageName: ""}, // dropped: no image name
-		{ProviderVMID: "i-3", ImageID: "ami-3", ImageName: "img-c"},
+		{
+			ProviderVMID: "i-1", Name: "main-x-md-worker-eu-west-2a-abc", ImageID: "ami-1", ImageName: "img-a",
+			InstanceType: "tinav7.c8r32p1", PowerState: "running", Zone: "eu-west-2a", VPCID: "vpc-1",
+			ProviderCreationDate: created,
+			Tags:                 map[string]string{"OscK8sClusterID/main-x-uuid": "owned", "Name": "main-x-md-worker-eu-west-2a-abc"},
+		},
+		// No image resolved: still sent (the reconciliation needs the VM even
+		// when the OS-image backfill cannot use it).
+		{ProviderVMID: "i-2", Name: "weird", Tags: map[string]string{"OscK8sNodeName": "ip-10-0-0-1"}},
 	}
-	got := buildNodeImageMappings(vms)
+	got := buildKubeNodeVMs(vms)
 	if len(got) != 2 {
-		t.Fatalf("got %d mappings; want 2 (%+v)", len(got), got)
+		t.Fatalf("got %d mappings; want 2", len(got))
 	}
-	if got[0].ProviderVMID != "i-1" || got[0].ImageName != "img-a" {
-		t.Fatalf("unexpected mapping[0]: %+v", got[0])
+	m := got[0]
+	if m.ProviderVMID != "i-1" || m.ClusterHint != "main-x" || m.ClusterTag != "main-x-uuid" ||
+		m.InstanceType != "tinav7.c8r32p1" || m.PowerState != "running" || m.Zone != "eu-west-2a" ||
+		m.VPCID != "vpc-1" || m.ImageName != "img-a" || m.ProviderCreationDate == nil || !m.ProviderCreationDate.Equal(created) {
+		t.Fatalf("unexpected mapping[0]: %+v", m)
 	}
-	if got[1].ProviderVMID != "i-3" {
+	if got[1].ClusterTag != "" || got[1].NodeNameTag != "ip-10-0-0-1" || got[1].ClusterHint != "" || got[1].ProviderCreationDate != nil {
 		t.Fatalf("unexpected mapping[1]: %+v", got[1])
 	}
 }

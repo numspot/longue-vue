@@ -7,6 +7,8 @@ package api
 
 import (
 	"encoding/json"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -356,10 +358,127 @@ type VMApplicationDistinct struct {
 // collector for a Kubernetes node VM. The server matches ProviderVMID
 // against nodes.provider_id (substring) to backfill the node's OS image
 // (ADR-0040). Vendor-neutral: this is pure CMDB inventory.
+//
+// The fields beyond the original three (ProviderVMID, ImageID, ImageName)
+// are ADR-0045 additions for kube-tagged VM reconciliation: they let the
+// collector report full VM inventory for the kube_node_vms table in the
+// same ingest payload. All are optional so the three-field legacy payload
+// keeps decoding unchanged (ADR-0045 §2).
 type NodeImage struct {
-	ProviderVMID string `json:"provider_vm_id"`
-	ImageID      string `json:"image_id"`
-	ImageName    string `json:"image_name"`
+	ProviderVMID         string     `json:"provider_vm_id"`
+	ImageID              string     `json:"image_id"`
+	ImageName            string     `json:"image_name"`
+	Name                 string     `json:"name,omitempty"`
+	ClusterTag           string     `json:"cluster_tag,omitempty"`
+	NodeNameTag          string     `json:"node_name_tag,omitempty"`
+	ClusterHint          string     `json:"cluster_hint,omitempty"`
+	InstanceType         string     `json:"instance_type,omitempty"`
+	PowerState           string     `json:"power_state,omitempty"`
+	Zone                 string     `json:"zone,omitempty"`
+	VPCID                string     `json:"vpc_id,omitempty"`
+	ProviderCreationDate *time.Time `json:"provider_creation_date,omitempty"`
+}
+
+// KubeNodeVMStatus is the reconciled lifecycle state of a kube-tagged VM
+// (ADR-0045). Exactly one of the four values applies at any time.
+type KubeNodeVMStatus string
+
+const (
+	// KubeNodeVMStatusNode is set when the VM is currently backing a live
+	// cluster node.
+	KubeNodeVMStatusNode KubeNodeVMStatus = "node"
+	// KubeNodeVMStatusPending is set when the VM was seen kube-tagged but
+	// has not yet matched a node, within the grace period.
+	KubeNodeVMStatusPending KubeNodeVMStatus = "pending"
+	// KubeNodeVMStatusOrphan is set when the VM outlived the grace period
+	// without matching any node — a leak candidate.
+	KubeNodeVMStatusOrphan KubeNodeVMStatus = "orphan"
+	// KubeNodeVMStatusUnknownCluster is set when the VM's cluster
+	// tag/hint does not resolve to a known cluster.
+	KubeNodeVMStatusUnknownCluster KubeNodeVMStatus = "unknown_cluster"
+)
+
+// KubeNodeVM is one row of the kube_node_vms reconciliation table
+// (ADR-0045): a kube-tagged VM matched (or not) against a cluster node.
+type KubeNodeVM struct {
+	ID                   uuid.UUID        `json:"id"`
+	CloudAccountID       uuid.UUID        `json:"cloud_account_id"`
+	CloudAccountName     string           `json:"cloud_account_name"`
+	ProviderVMID         string           `json:"provider_vm_id"`
+	ClusterTag           string           `json:"cluster_tag"`
+	NodeNameTag          string           `json:"node_name_tag"`
+	ClusterHint          string           `json:"cluster_hint"`
+	Name                 string           `json:"name"`
+	InstanceType         string           `json:"instance_type"`
+	PowerState           string           `json:"power_state"`
+	Zone                 string           `json:"zone"`
+	VPCID                string           `json:"vpc_id"`
+	ImageID              string           `json:"image_id"`
+	ImageName            string           `json:"image_name"`
+	ProviderCreationDate *time.Time       `json:"provider_creation_date,omitempty"`
+	NodeID               *uuid.UUID       `json:"node_id,omitempty"`
+	ClusterID            *uuid.UUID       `json:"cluster_id,omitempty"`
+	ClusterName          *string          `json:"cluster_name,omitempty"`
+	Status               KubeNodeVMStatus `json:"status"`
+	StatusSince          time.Time        `json:"status_since"`
+	FirstSeenAt          time.Time        `json:"first_seen_at"`
+	LastSeenAt           time.Time        `json:"last_seen_at"`
+}
+
+// KubeNodeVMListFilter collects the optional filters accepted by
+// ListKubeNodeVMs. Nil/zero fields are ignored; all present fields are
+// AND-combined.
+type KubeNodeVMListFilter struct {
+	CloudAccountID *uuid.UUID
+	ClusterID      *uuid.UUID
+	Statuses       []KubeNodeVMStatus // empty = no status filter (handlers apply the orphan+unknown default)
+	ClusterHint    *string
+	InstanceType   *string
+	PowerState     *string
+	Name           *string // uniform name= semantics (ci substring / *-glob), also matches provider_vm_id
+}
+
+// KubeNodeVMSummaryRow is one aggregated row returned by
+// SummarizeKubeNodeVMs: counts and resource totals for one
+// (cloud account, status) pair.
+type KubeNodeVMSummaryRow struct {
+	CloudAccountID   uuid.UUID        `json:"cloud_account_id"`
+	CloudAccountName string           `json:"cloud_account_name"`
+	Status           KubeNodeVMStatus `json:"status"`
+	Count            int              `json:"count"`
+	VCPU             int              `json:"vcpu"`
+	MemoryGiB        int              `json:"memory_gib"`
+}
+
+// KubeNodeVMReconcileResult summarizes one ReconcileKubeNodeVMs call: how
+// many rows were upserted/deleted, the resulting per-status counts for the
+// account, and the individual status transitions (for logging).
+type KubeNodeVMReconcileResult struct {
+	Upserted, Deleted, Node, Pending, Orphan, UnknownCluster int
+	// Transitions lists rows whose status changed this call, for logging.
+	Transitions []KubeNodeVMTransition
+}
+
+// KubeNodeVMTransition records one row's status change during a
+// ReconcileKubeNodeVMs call.
+type KubeNodeVMTransition struct {
+	ProviderVMID string
+	From, To     KubeNodeVMStatus
+}
+
+var instanceTypeRe = regexp.MustCompile(`^tinav\d+\.c(\d+)r(\d+)p\d$`)
+
+// ParseInstanceType extracts vCPU and RAM (GiB) from an Outscale
+// "tinav7.c8r32p1"-style instance type. ok is false for any other
+// shape (GPU "inference7-*" types, empty strings).
+func ParseInstanceType(t string) (vcpu, memGiB int, ok bool) {
+	m := instanceTypeRe.FindStringSubmatch(t)
+	if m == nil {
+		return 0, 0, false
+	}
+	vcpu, _ = strconv.Atoi(m[1])
+	memGiB, _ = strconv.Atoi(m[2])
+	return vcpu, memGiB, true
 }
 
 // OSImage is the aggregated OS-image inventory view returned by

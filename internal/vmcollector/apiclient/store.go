@@ -261,12 +261,23 @@ func (s *Store) SweepSecurityGroups(
 	return s.doJSON(ctx, http.MethodPost, path, body, nil)
 }
 
-// NodeImageMapping pairs a Kubernetes node VM's provider id with its
-// resolved OS image, for the node-image backfill endpoint (ADR-0040).
+// NodeImageMapping is one kube-tagged VM reported to
+// POST /v1/ingest/cloud-accounts/{id}/node-images. The first three fields
+// are the ADR-0040 OS-image backfill; the rest feed the kube-tagged VM
+// reconciliation (ADR-0045). Older servers ignore unknown fields.
 type NodeImageMapping struct {
-	ProviderVMID string `json:"provider_vm_id"`
-	ImageID      string `json:"image_id"`
-	ImageName    string `json:"image_name"`
+	ProviderVMID         string     `json:"provider_vm_id"`
+	ImageID              string     `json:"image_id"`
+	ImageName            string     `json:"image_name"`
+	Name                 string     `json:"name,omitempty"`
+	ClusterTag           string     `json:"cluster_tag,omitempty"`
+	NodeNameTag          string     `json:"node_name_tag,omitempty"`
+	ClusterHint          string     `json:"cluster_hint,omitempty"`
+	InstanceType         string     `json:"instance_type,omitempty"`
+	PowerState           string     `json:"power_state,omitempty"`
+	Zone                 string     `json:"zone,omitempty"`
+	VPCID                string     `json:"vpc_id,omitempty"`
+	ProviderCreationDate *time.Time `json:"provider_creation_date,omitempty"`
 }
 
 // BackfillNodeImages POSTs /v1/ingest/cloud-accounts/{id}/node-images with

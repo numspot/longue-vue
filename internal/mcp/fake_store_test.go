@@ -17,18 +17,19 @@ import (
 type fakeStore struct {
 	settings api.Settings
 
-	clusters []api.Cluster
-	nodes    []api.Node
-	nss      []api.Namespace
-	pods     []api.Pod
-	wls      []api.Workload
-	svcs     []api.Service
-	ings     []api.Ingress
-	pvs      []api.PersistentVolume
-	pvcs     []api.PersistentVolumeClaim
-	accounts []api.CloudAccount
-	vms      []api.VirtualMachine
-	vmApps   []api.VMApplicationDistinct
+	clusters    []api.Cluster
+	nodes       []api.Node
+	nss         []api.Namespace
+	pods        []api.Pod
+	wls         []api.Workload
+	svcs        []api.Service
+	ings        []api.Ingress
+	pvs         []api.PersistentVolume
+	pvcs        []api.PersistentVolumeClaim
+	accounts    []api.CloudAccount
+	vms         []api.VirtualMachine
+	vmApps      []api.VMApplicationDistinct
+	kubeNodeVMs []api.KubeNodeVM
 	// Flat ImageVersionRow slice; ListImageVersionsByRepo groups by repo on
 	// the fly so test setup just appends rows without nesting.
 	imageVersions []api.ImageVersionRow
@@ -40,8 +41,9 @@ type fakeStore struct {
 	errOn             map[string]error
 	panicOnGetCluster bool // triggers a panic inside GetCluster for panic-recovery tests
 
-	lastVMFilter  api.VirtualMachineListFilter
-	lastAppFilter api.ApplicationListFilter
+	lastVMFilter         api.VirtualMachineListFilter
+	lastAppFilter        api.ApplicationListFilter
+	lastKubeNodeVMFilter api.KubeNodeVMListFilter
 }
 
 func newFakeStore() *fakeStore {
@@ -377,6 +379,55 @@ func (f *fakeStore) ListDistinctVMApplications(_ context.Context) ([]api.VMAppli
 	}
 	out := make([]api.VMApplicationDistinct, len(f.vmApps))
 	copy(out, f.vmApps)
+	return out, nil
+}
+
+// --- Kube-tagged VMs (ADR-0045) ----
+
+func (f *fakeStore) ListKubeNodeVMs(_ context.Context, filter api.KubeNodeVMListFilter, _ api.ListPage) ([]api.KubeNodeVM, string, error) {
+	f.lastKubeNodeVMFilter = filter
+	var out []api.KubeNodeVM
+	for _, v := range f.kubeNodeVMs {
+		if filter.CloudAccountID != nil && v.CloudAccountID != *filter.CloudAccountID {
+			continue
+		}
+		if len(filter.Statuses) > 0 {
+			ok := false
+			for _, s := range filter.Statuses {
+				if s == v.Status {
+					ok = true
+				}
+			}
+			if !ok {
+				continue
+			}
+		}
+		out = append(out, v)
+	}
+	return out, "", nil
+}
+
+func (f *fakeStore) SummarizeKubeNodeVMs(_ context.Context, accountID *uuid.UUID) ([]api.KubeNodeVMSummaryRow, error) {
+	agg := map[api.KubeNodeVMStatus]*api.KubeNodeVMSummaryRow{}
+	for _, v := range f.kubeNodeVMs {
+		if accountID != nil && v.CloudAccountID != *accountID {
+			continue
+		}
+		r, ok := agg[v.Status]
+		if !ok {
+			r = &api.KubeNodeVMSummaryRow{CloudAccountID: v.CloudAccountID, CloudAccountName: v.CloudAccountName, Status: v.Status}
+			agg[v.Status] = r
+		}
+		r.Count++
+		if c, m, ok := api.ParseInstanceType(v.InstanceType); ok {
+			r.VCPU += c
+			r.MemoryGiB += m
+		}
+	}
+	out := make([]api.KubeNodeVMSummaryRow, 0, len(agg))
+	for _, r := range agg {
+		out = append(out, *r)
+	}
 	return out, nil
 }
 

@@ -743,6 +743,7 @@ func (m *memStore) GetSettings(_ context.Context) (Settings, error) {
 	return m.settings, nil
 }
 
+//nolint:gocritic // hugeParam: signature matches the Store interface
 func (m *memStore) UpdateSettings(_ context.Context, patch SettingsPatch) (Settings, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -769,6 +770,9 @@ func (m *memStore) UpdateSettings(_ context.Context, patch SettingsPatch) (Setti
 	}
 	if patch.PoliciesEnabled != nil {
 		m.settings.PoliciesEnabled = *patch.PoliciesEnabled
+	}
+	if patch.KubeNodeVMGraceHours != nil {
+		m.settings.KubeNodeVMGraceHours = *patch.KubeNodeVMGraceHours
 	}
 	return m.settings, nil
 }
