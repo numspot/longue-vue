@@ -61,7 +61,7 @@ All configuration is via environment variables.
 
 ### Kube-tagged VM reconciliation (ADR-0045)
 
-The pre-filter that drops kube-tagged VMs (`OscK8sClusterID/*`, `OscK8sNodeName`) does not throw them away: every one of them is sent to `POST /v1/ingest/cloud-accounts/{id}/node-images` alongside the OS-image backfill (ADR-0040), with an enriched payload — `name`, `cluster_tag` (from `OscK8sClusterID/<tag>`), `node_name_tag`, `cluster_hint` (the CAPO cluster name derived from the machine name, e.g. `<cluster>-md-worker-<zone>-…` or `<cluster>-ct-control-plane-…`), `instance_type`, `power_state`, `zone`, `vpc_id`, and `provider_creation_date`. Older collectors keep sending only the three OS-image fields; longue-vue then classifies those VMs as `node` or `pending` only, never `orphan` or `unknown_cluster`.
+The pre-filter that drops kube-tagged VMs (`OscK8sClusterID/*`, `OscK8sNodeName`) does not throw them away: every one of them is sent to `POST /v1/ingest/cloud-accounts/{id}/node-images` alongside the OS-image backfill (ADR-0040), with an enriched payload — `name`, `cluster_tag` (from `OscK8sClusterID/<tag>`), `node_name_tag`, `cluster_hint` (the CAPO cluster name derived from the machine name, e.g. `<cluster>-md-worker-<zone>-…` or `<cluster>-ct-control-plane-…`), `instance_type`, `power_state`, `zone`, `vpc_id`, and `provider_creation_date`. Older collectors keep sending only the three OS-image fields; longue-vue then classifies those VMs as `node`, `pending`, or — once the grace elapses — `unknown_cluster`; never a false `orphan`.
 
 On the server, each reported VM is upserted into `kube_node_vms` and classified in the same ingest transaction:
 

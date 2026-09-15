@@ -146,6 +146,31 @@ func TestReconcileKubeNodeVMs_ZeroGraceClassifiesImmediately(t *testing.T) {
 	}
 }
 
+// TestReconcileKubeNodeVMs_LegacyRowAfterGraceIsUnknownCluster pins the
+// backward-compatibility rule (finding 3, 2026-09-14 review): a legacy row
+// reported by an old three-field collector (empty cluster_hint and
+// cluster_tag) can never become a false `orphan` once the grace elapses —
+// at worst it is `unknown_cluster` (ADR-0045 §2, spec §3.2). Docs
+// previously claimed such rows could only ever be `node` or `pending`,
+// which understates the correct §2 wording ("at worst unknown_cluster").
+func TestReconcileKubeNodeVMs_LegacyRowAfterGraceIsUnknownCluster(t *testing.T) {
+	pg := newTestPG(t)
+	accountID, _ := seedKubeNodeVMFixture(t, pg)
+	items := []api.NodeImage{
+		// i-live matches the fixture's live node, giving the account a
+		// known cluster (hint "main-x").
+		{ProviderVMID: "i-live", ClusterHint: "main-x"},
+		// Legacy collector row: no hint, no tag, no creation date.
+		{ProviderVMID: "i-legacy"},
+	}
+	if _, err := pg.ReconcileKubeNodeVMs(context.Background(), accountID, items, 0); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+	if got := statusOf(t, pg, accountID, "i-legacy").Status; got != api.KubeNodeVMStatusUnknownCluster {
+		t.Fatalf("status %q; want unknown_cluster (never a false orphan)", got)
+	}
+}
+
 func TestReconcileKubeNodeVMs_DeletesMissingAndKeepsStatusSince(t *testing.T) {
 	pg := newTestPG(t)
 	ctx := context.Background()

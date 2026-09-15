@@ -55,7 +55,8 @@ script (no UI, duplicated credentials, forgotten).
 
 - ADR-0015 unchanged; no new scope, secret or cloud API call.
 - Old collectors keep working (three-field payload → rows can only be
-  `node` or `pending`); old servers ignore the new fields.
+  `node`, `pending`, or — once the grace elapses — `unknown_cluster`;
+  never a false `orphan`); old servers ignore the new fields.
 - A cluster whose collector dies turns its VMs into orphans at the next
   tick — desired (dead cluster, VMs still billed).
 - Out of scope for now: detached volumes, unattached public IPs,
