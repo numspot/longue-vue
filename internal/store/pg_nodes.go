@@ -622,8 +622,14 @@ func (p *PG) UpsertNode(ctx context.Context, in api.NodeCreate) (api.Node, api.U
 
 // BackfillNodeImages sets image_id/image_name on every node whose
 // provider_id contains a reported provider_vm_id (ADR-0040). Empty strings
-// are normalised to NULL. Idempotent via IS DISTINCT FROM. Runs the batch
-// in one transaction; per-mapping the CTE counts matched vs actually-updated.
+// are normalised to NULL. An empty incoming image_id/image_name never
+// clears a previously backfilled value (finding 1, 2026-09-14 review): the
+// enriched ADR-0045 payload legitimately sends kube-tagged VMs without a
+// resolved image, and a transient provider ReadImages failure or a
+// deregistered AMI must not null out history. Idempotent via IS DISTINCT
+// FROM, restricted to non-empty incoming values so an empty payload never
+// counts as a change. Runs the batch in one transaction; per-mapping the
+// CTE counts matched vs actually-updated.
 func (p *PG) BackfillNodeImages(ctx context.Context, images []api.NodeImage) (matched, updated int, err error) {
 	if len(images) == 0 {
 		return 0, 0, nil
@@ -634,11 +640,13 @@ func (p *PG) BackfillNodeImages(ctx context.Context, images []api.NodeImage) (ma
 		   WHERE provider_id LIKE '%' || $1 || '%' ESCAPE '\'
 		), upd AS (
 		  UPDATE nodes n
-		     SET image_id = NULLIF($2, ''), image_name = NULLIF($3, ''), updated_at = now()
+		     SET image_id = COALESCE(NULLIF($2, ''), n.image_id),
+		         image_name = COALESCE(NULLIF($3, ''), n.image_name),
+		         updated_at = now()
 		    FROM m
 		   WHERE n.id = m.id
-		     AND (m.image_id   IS DISTINCT FROM NULLIF($2, '')
-		       OR m.image_name IS DISTINCT FROM NULLIF($3, ''))
+		     AND ((NULLIF($2, '') IS NOT NULL AND m.image_id   IS DISTINCT FROM NULLIF($2, ''))
+		       OR (NULLIF($3, '') IS NOT NULL AND m.image_name IS DISTINCT FROM NULLIF($3, '')))
 		  RETURNING n.id
 		)
 		SELECT (SELECT count(*) FROM m), (SELECT count(*) FROM upd)`
