@@ -1164,16 +1164,19 @@ func (s *Server) handleGetCloudAccount(ctx context.Context, request mcp.CallTool
 	} else {
 		slog.Warn("mcp get_cloud_account: kube node vm summary failed", slog.Any("error", serr))
 	}
-	out := map[string]any{}
-	raw, merr := json.Marshal(redactCloudAccount(acct))
-	if merr != nil {
-		return nil, fmt.Errorf("marshal cloud account: %w", merr)
-	}
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil, fmt.Errorf("unmarshal cloud account: %w", err)
-	}
-	out["kube_node_vms"] = summary
-	return jsonResult(out)
+	return jsonResult(cloudAccountWithKubeNodeVMs{
+		CloudAccount: redactCloudAccount(acct),
+		KubeNodeVMs:  summary,
+	})
+}
+
+// cloudAccountWithKubeNodeVMs decorates a redacted cloud account with its
+// kube-tagged VM status counts (ADR-0045). The embedded struct flattens into
+// the same JSON object the tool returned before the counts were added, so
+// existing consumers see one extra key and nothing else moves.
+type cloudAccountWithKubeNodeVMs struct {
+	api.CloudAccount
+	KubeNodeVMs map[string]int `json:"kube_node_vms"`
 }
 
 // kubeNodeVMStatusFields maps the MCP string filter keys of a KubeNodeVM
