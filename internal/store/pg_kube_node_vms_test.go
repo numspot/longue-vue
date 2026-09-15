@@ -201,6 +201,43 @@ func TestReconcileKubeNodeVMs_DeletesMissingAndKeepsStatusSince(t *testing.T) {
 	}
 }
 
+// TestReconcileKubeNodeVMs_EmptyPayloadDeletesAccountRows pins the
+// full-set delete semantics (finding 2, 2026-09-14 review): when an
+// account's last kube-tagged VM disappears, the collector must still POST
+// (an empty payload), and the server must delete every row of that
+// account — otherwise KubeNodeVMOrphans alerts forever on stale rows.
+func TestReconcileKubeNodeVMs_EmptyPayloadDeletesAccountRows(t *testing.T) {
+	pg := newTestPG(t)
+	ctx := context.Background()
+	accountID, _ := seedKubeNodeVMFixture(t, pg)
+
+	first := []api.NodeImage{
+		{ProviderVMID: "i-a", ClusterHint: "main-x", ProviderCreationDate: ago(400 * time.Hour)},
+		{ProviderVMID: "i-b", ClusterHint: "main-x", ProviderCreationDate: ago(400 * time.Hour)},
+	}
+	if _, err := pg.ReconcileKubeNodeVMs(ctx, accountID, first, 24*time.Hour); err != nil {
+		t.Fatalf("seed reconcile: %v", err)
+	}
+
+	res, err := pg.ReconcileKubeNodeVMs(ctx, accountID, nil, 24*time.Hour)
+	if err != nil {
+		t.Fatalf("empty-payload reconcile: %v", err)
+	}
+	if res.Deleted != 2 {
+		t.Fatalf("deleted=%d; want 2", res.Deleted)
+	}
+	items, _, err := pg.ListKubeNodeVMs(ctx, api.KubeNodeVMListFilter{
+		CloudAccountID: &accountID,
+		Statuses:       []api.KubeNodeVMStatus{"node", "pending", "orphan", "unknown_cluster"},
+	}, api.ListPage{Limit: 100})
+	if err != nil {
+		t.Fatalf("ListKubeNodeVMs: %v", err)
+	}
+	if len(items) != 0 {
+		t.Fatalf("list not empty after full-set delete: %+v", items)
+	}
+}
+
 func TestReconcileKubeNodeVMs_TransitionPendingToNode(t *testing.T) {
 	pg := newTestPG(t)
 	ctx := context.Background()

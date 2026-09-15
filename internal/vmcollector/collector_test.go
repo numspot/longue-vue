@@ -27,6 +27,7 @@ type fakeStore struct {
 	sweptAttachments   []apiclient.SGAttachment
 	sweptSeenIDs       []string
 	backedupNodeImages []apiclient.NodeImageMapping
+	backfillCalls      int
 }
 
 type reconcileCall struct {
@@ -118,6 +119,7 @@ func (f *fakeStore) SweepSecurityGroups(
 func (f *fakeStore) BackfillNodeImages(_ context.Context, _ uuid.UUID, images []apiclient.NodeImageMapping) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.backfillCalls++
 	f.backedupNodeImages = append(f.backedupNodeImages, images...)
 	return nil
 }
@@ -243,6 +245,48 @@ func TestCollectorTickEndToEnd(t *testing.T) {
 	last := store.statusUpdates[len(store.statusUpdates)-1]
 	if last.status != "active" || last.lastSeenAt == nil {
 		t.Errorf("last status update = %+v", last)
+	}
+}
+
+// TestTick_PostsEmptyKubeNodeVMBatchWhenNoneListed pins the full-set
+// delete semantics fix (finding 2, 2026-09-14 review): the collector must
+// always POST the kube-tagged-VM batch after a successful ListVMs, even
+// when it is empty, so the server's ADR-0045 full-set delete fires the
+// tick an account's last kube-tagged VM disappears (an empty payload is a
+// no-op for the ADR-0040 backfill half). Before the fix, a `len(...) > 0`
+// guard skipped the call entirely in this case.
+func TestTick_PostsEmptyKubeNodeVMBatchWhenNoneListed(t *testing.T) {
+	t.Parallel()
+	store := newFakeStore()
+	store.credsByName["x"] = apiclient.Credentials{
+		AccessKey: "ak", SecretKey: "sk", Region: "eu-west-2", Provider: "outscale",
+	}
+	fakeProv := &provider.Fake{
+		VMs: []provider.VM{
+			// No kube-tagged VM this tick — the last one was decommissioned.
+			{ProviderVMID: "i-app1", Name: "app", PowerState: "running"},
+		},
+	}
+	c := New(Config{
+		Provider:    "outscale",
+		AccountName: "x",
+		Region:      "eu-west-2",
+		Interval:    1 * time.Hour,
+		Reconcile:   true,
+	}, store, func(_ apiclient.Credentials) (provider.Provider, error) {
+		return fakeProv, nil
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c.runOnce(ctx)
+
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if store.backfillCalls != 1 {
+		t.Fatalf("BackfillNodeImages calls = %d, want 1 (must POST even an empty batch)", store.backfillCalls)
+	}
+	if len(store.backedupNodeImages) != 0 {
+		t.Fatalf("backedupNodeImages = %v, want empty batch", store.backedupNodeImages)
 	}
 }
 

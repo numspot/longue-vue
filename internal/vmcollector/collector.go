@@ -193,15 +193,19 @@ func (c *Collector) runOnce(ctx context.Context) {
 	// needs their OS image and enough identity to reconcile them against
 	// Kubernetes nodes. Push a per-tick batch of kube-tagged VM details for
 	// the dropped node VMs so the server can backfill nodes.image_* and
-	// reconcile provider VMs to nodes. Best-effort: never abort the tick on
-	// failure.
-	if nodeImages := buildKubeNodeVMs(filter.KubeNodeVMs(vms)); len(nodeImages) > 0 {
-		if err := c.store.BackfillNodeImages(tickCtx, accountID, nodeImages); err != nil {
-			IncNodeImageBackfill("error")
-			slog.Warn("vm-collector: node-image backfill failed (non-fatal)", slog.Any("error", err))
-		} else {
-			IncNodeImageBackfill("success")
-		}
+	// reconcile provider VMs to nodes. Always POST after a successful
+	// ListVMs, even when the batch is empty: the server's ADR-0045 rows
+	// are a full-set reconcile (rows of the account absent from the
+	// payload are deleted), so an empty batch is what tells the server the
+	// account's last kube-tagged VM is gone — skipping the call here would
+	// leave stale rows and alert forever. An empty batch is a no-op for the
+	// ADR-0040 backfill half. Best-effort: never abort the tick on failure.
+	nodeImages := buildKubeNodeVMs(filter.KubeNodeVMs(vms))
+	if err := c.store.BackfillNodeImages(tickCtx, accountID, nodeImages); err != nil {
+		IncNodeImageBackfill("error")
+		slog.Warn("vm-collector: node-image backfill failed (non-fatal)", slog.Any("error", err))
+	} else {
+		IncNodeImageBackfill("success")
 	}
 
 	// Account-level SG sweep: delete any SGs not seen in this tick.
