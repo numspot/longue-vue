@@ -57,7 +57,7 @@ The main daemon, built from `cmd/longue-vue/main.go`. It combines several subsys
 - **PostgreSQL store** -- cursor-paginated CRUD with merge-patch updates. Implemented in `internal/store/`.
 - **EOL enricher** -- background goroutine that annotates clusters, nodes, and platform VMs with lifecycle status from [endoflife.date](https://endoflife.date). Implemented in `internal/eol/`. Toggled at runtime via the `eol_enabled` setting. See [ADR-0012](adr/adr-0012-eol-enrichment-via-endoflife-date.md) and [EOL Enrichment](eol-enrichment.md).
 - **Impact analysis** -- on-the-fly FK traversal producing a dependency graph for any CMDB entity. Serves `GET /v1/impact/{entity_type}/{id}`. Implemented in `internal/impact/`. See [ADR-0013](adr/adr-0013-impact-analysis-graph.md) and [Impact Analysis](impact-analysis.md).
-- **MCP server** -- Model Context Protocol server exposing 28 read-only CMDB tools for AI agents, over SSE or stdio transports. Implemented in `internal/mcp/`. Toggled at runtime via the `mcp_enabled` setting. See [ADR-0014](adr/adr-0014-mcp-server.md) and [MCP Server](mcp-server.md).
+- **MCP server** -- Model Context Protocol server exposing 29 read-only CMDB tools for AI agents, over SSE or stdio transports. Implemented in `internal/mcp/`. Toggled at runtime via the `mcp_enabled` setting. See [ADR-0014](adr/adr-0014-mcp-server.md) and [MCP Server](mcp-server.md).
 - **Ingest listener** -- optional second mTLS-only listener (`:8443`) for push-mode collectors transiting through a DMZ ingest gateway. Registered via `api.NewIngestMux`. Disabled unless `LONGUE_VUE_INGEST_LISTEN_ADDR` is set. See [ADR-0016](adr/adr-0016-dmz-ingest-gateway.md).
 - **Metrics** -- Prometheus counters and gauges at `/metrics`. Implemented in `internal/metrics/`.
 - **Embedded UI** -- the React SPA built into the binary via `//go:embed` and served at `/ui/*`.
@@ -166,8 +166,9 @@ Clusters carry operator-editable columns (`owner`, `criticality`, `notes`, `runb
 
 Two top-level tables outside the Kubernetes entity hierarchy:
 
-- `cloud_accounts` — operator-editable records of cloud-provider accounts. Each row holds the AK (plaintext) and SK (AES-256-GCM encrypted, AAD-bound to the row UUID) for one account, plus curated metadata and a lifecycle status (`pending_credentials`, `active`, `error`, `disabled`). FK source for `virtual_machines`.
+- `cloud_accounts` — operator-editable records of cloud-provider accounts. Each row holds the AK (plaintext) and SK (AES-256-GCM encrypted, AAD-bound to the row UUID) for one account, plus curated metadata and a lifecycle status (`pending_credentials`, `active`, `error`, `disabled`). FK source for `virtual_machines` and `kube_node_vms`.
 - `virtual_machines` — non-Kubernetes platform VMs catalogued by the vm-collector. Top-level FK to `cloud_accounts(id)` `ON DELETE CASCADE`. Carries cloud-provider metadata (AMI, instance type, networking, security groups) plus an operator-curated `applications` JSONB array for platform software inventory. Soft-deleted via `terminated_at`; never hard-deleted by reconciliation.
+- `kube_node_vms` — kube-tagged VMs reconciled against Kubernetes nodes (ADR-0045). Top-level FK to `cloud_accounts(id)` `ON DELETE CASCADE`, nullable FKs to `nodes(id)` and `clusters(id)` `ON DELETE SET NULL`. Status (`node`, `pending`, `orphan`, `unknown_cluster`) computed server-side at ingest time; rows absent from a tick's payload are deleted (full-set reconcile).
 
 ### Audit events
 
