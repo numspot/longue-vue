@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.28.0](https://github.com/numspot/longue-vue/compare/chart-longue-vue-v0.27.0...chart-longue-vue-v0.28.0) (2026-10-01)
+
+
+### Features
+
+* kube-tagged VM reconciliation (orphan node VMs, ADR-0045) ([0651daa](https://github.com/numspot/longue-vue/commit/0651daaf554aa6f2f9cf11555436befe86cdad7f))
+* **metrics:** kube node VM gauges and optional orphan alert rules ([6aa30cf](https://github.com/numspot/longue-vue/commit/6aa30cfb330dc0eb433fa6fa67c99962111fcf38))
+
 ## [0.28.0](https://github.com/sthalbert/Longue-Vue/compare/chart-longue-vue-v0.27.0...chart-longue-vue-v0.28.0) (2026-09-14)
 
 

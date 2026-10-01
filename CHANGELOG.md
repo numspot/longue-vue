@@ -6,6 +6,31 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 — the REST and database contracts may still change incompatibly before
 `v1.0.0`.
 
+## [1.15.0](https://github.com/numspot/longue-vue/compare/v1.14.0...v1.15.0) (2026-10-01)
+
+
+### Features
+
+* **kube-node-vms:** add API types, store interface and instance-type parser ([7650803](https://github.com/numspot/longue-vue/commit/76508031ac6b6d654f79a5563e8e855d3b40f04c))
+* **kube-node-vms:** add kube_node_vms table and grace setting ([4428b34](https://github.com/numspot/longue-vue/commit/4428b347f26d6976aa8c2dc94d58b17022b6cfeb))
+* **kube-node-vms:** add list and per-account summary in the store (ADR-0042) ([e2e6509](https://github.com/numspot/longue-vue/commit/e2e6509f854cc409b31c3098e7adffa60a90e6e1))
+* **kube-node-vms:** list and summary endpoints (ADR-0045) with OpenAPI docs ([71d10e5](https://github.com/numspot/longue-vue/commit/71d10e5b236bae41523455d2ebe71abfe3804c8f))
+* **kube-node-vms:** reconcile kube-tagged VMs and compute status in the store ([7d64e78](https://github.com/numspot/longue-vue/commit/7d64e78db6b6fbe6e387a8451ef8a65e732024a9))
+* **kube-node-vms:** reconcile kube-tagged VMs from the node-images ingest ([e0c8c69](https://github.com/numspot/longue-vue/commit/e0c8c6997f98ec07f64aca65e86eff5fb9a8195a))
+* kube-tagged VM reconciliation (orphan node VMs, ADR-0045) ([0651daa](https://github.com/numspot/longue-vue/commit/0651daaf554aa6f2f9cf11555436befe86cdad7f))
+* **mcp:** list_kube_node_vms tool and kube node VM summary on get_cloud_account ([3cf771b](https://github.com/numspot/longue-vue/commit/3cf771b3fa06db31163188d34dfb25724d0f7f75))
+* **metrics:** kube node VM gauges and optional orphan alert rules ([6aa30cf](https://github.com/numspot/longue-vue/commit/6aa30cfb330dc0eb433fa6fa67c99962111fcf38))
+* **ui:** add node VMs page and orphan banners on cloud account and cluster pages ([7fc5254](https://github.com/numspot/longue-vue/commit/7fc525467f665249c0c18d768891834310411f9c))
+* **vm-collector:** send kube-tagged VM details with the node-images ingest ([3fd7c1a](https://github.com/numspot/longue-vue/commit/3fd7c1a04dc6449137e7138b2433763cbbd243dd))
+
+
+### Bug Fixes
+
+* **api:** regenerate embedded OpenAPI spec with the go.mod toolchain ([26781da](https://github.com/numspot/longue-vue/commit/26781da94e68d39eee10dbb9d8f3c2f6a5438a58))
+* **kube-node-vms:** always post kube-tagged VM batch, even when empty ([b737d47](https://github.com/numspot/longue-vue/commit/b737d47cc6ea481ca6c1dd6766e231c910dd9cce))
+* **kube-node-vms:** keep existing node image on empty backfill payload ([6b4a716](https://github.com/numspot/longue-vue/commit/6b4a71669816df3fa50bdbfbc554c124ccf7ecdc))
+* **mcp:** build the cloud-account result without a JSON round-trip ([0ec5bb9](https://github.com/numspot/longue-vue/commit/0ec5bb9f67416894e135d28f20680ffa2b90871f))
+
 ## [1.14.0](https://github.com/sthalbert/Longue-Vue/compare/v1.13.1...v1.14.0) (2026-08-31)
 
 
