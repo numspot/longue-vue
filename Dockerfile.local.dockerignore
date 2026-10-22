@@ -1,0 +1,34 @@
+# INTERNAL UI build context. This overrides the root .dockerignore.
+# Public Dockerfiles must continue to use the root policy, which excludes DS.
+.git
+.github
+.gitignore
+.commitlintrc.yml
+.claude
+.vscode
+.idea
+bin/
+/longue-vue
+/longue-vue-ingest-gw
+/longue-vue-vm-collector
+/longue-vue-collector
+*.zip
+*.exe
+*.test
+coverage.*
+ui/node_modules
+ui/dist
+ui/vendor
+ui/test-results
+ui/playwright-report
+dist/
+.env
+.env.*
+docs/
+LICENSE
+README.md
+Dockerfile
+.dockerignore
+# Admit only the pinned generated package, never checkouts/caches/other output.
+ui/.generated/*
+!ui/.generated/cloud-console-numspot-ds-1.4.0.tgz

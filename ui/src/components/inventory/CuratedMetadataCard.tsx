@@ -1,4 +1,5 @@
 import { FormEvent, useState } from 'react';
+import { Button, Tag } from '@cloud-console/numspot-ds';
 import type { ReactNode } from 'react';
 import { canEdit, useMe } from '../../me';
 import { KV, Labels } from '../../components';
@@ -92,9 +93,9 @@ export function CuratedMetadataCard({
       <div className="curated-card-header">
         <h3>{title}</h3>
         {canEdit(me) && (
-          <button type="button" className="primary" onClick={() => setEditing(true)}>
+          <Button type="button" variant="outlined" size="sm" onClick={() => setEditing(true)}>
             Edit
-          </button>
+          </Button>
         )}
       </div>
       {empty ? (
@@ -109,7 +110,7 @@ export function CuratedMetadataCard({
           <KV k="Owner" v={values.owner} />
           <KV
             k="Criticality"
-            v={values.criticality ? <span className="pill">{values.criticality}</span> : undefined}
+            v={values.criticality ? <Tag size="sm">{values.criticality}</Tag> : undefined}
           />
           <KV
             k="Runbook"
@@ -276,12 +277,12 @@ function CuratedForm({
         </div>
         {error && <div className="error">{error}</div>}
         <div className="admin-form-actions">
-          <button type="submit" className="primary" disabled={busy}>
+          <Button type="submit" size="sm" loading={busy} aria-label={busy ? 'Saving…' : undefined}>
             {busy ? 'Saving…' : 'Save'}
-          </button>
-          <button type="button" className="danger" onClick={onCancel} disabled={busy}>
+          </Button>
+          <Button type="button" variant="outlined" intent="neutral" size="sm" onClick={onCancel} disabled={busy}>
             Cancel
-          </button>
+          </Button>
         </div>
       </form>
     </section>

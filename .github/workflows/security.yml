@@ -26,7 +26,7 @@ jobs:
       - name: Install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
       - name: Run govulncheck
-        run: govulncheck ./...
+        run: govulncheck -tags=noui ./...
 
   gosec:
     name: gosec (Go SAST)
@@ -35,7 +35,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: securego/gosec@master
         with:
-          args: -fmt sarif -out gosec.sarif -no-fail -exclude-generated ./...
+          args: -tags=noui -fmt sarif -out gosec.sarif -no-fail -exclude-generated ./...
       - uses: github/codeql-action/upload-sarif@v4
         # Skip on release-please bot PRs — the bot's GITHUB_TOKEN doesn't get
         # security-events: write even when the workflow requests it, causing

@@ -1,4 +1,9 @@
 node_modules/
+# Generated proprietary dependencies are local-only; never commit them.
+/.generated/
+/vendor/
 dist/
 *.log
 .vite/
+playwright-report/
+test-results/

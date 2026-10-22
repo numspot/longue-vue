@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import * as api from '../api';
 import EolDashboard from './EolDashboard';
@@ -89,8 +89,9 @@ describe('EOL Dashboard extract button', () => {
       .mockResolvedValue({ truncated: false, filename: null });
     renderWithRouter(<EolDashboard />, { initialPath: '/eol' });
     const btn = await screen.findByRole('button', { name: /extract/i });
-    fireEvent.click(btn);
-    fireEvent.click(screen.getByRole('menuitem', { name: /csv/i }));
+    const user = userEvent.setup();
+    await user.click(btn);
+    await user.click(screen.getByRole('menuitem', { name: /csv/i }));
     await waitFor(() =>
       expect(spy).toHaveBeenCalledWith(expect.objectContaining({ format: 'csv' })),
     );

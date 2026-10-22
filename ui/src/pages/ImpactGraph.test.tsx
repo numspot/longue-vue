@@ -24,6 +24,16 @@ describe('ImpactSection', () => {
     });
   });
 
+  it('uses theme surfaces for readable graph nodes', async () => {
+    const { container } = renderWithRouter(
+      <ImpactSection entityType="clusters" entityId={fixtureCluster.id} />,
+    );
+    await waitFor(() => {
+      const node = container.querySelector('.impact-graph-svg rect');
+      expect(node).toHaveAttribute('fill', 'var(--color-surface-first)');
+    });
+  });
+
   it('renders error state on 500', async () => {
     server.use(
       http.get('/v1/impact/:type/:id', () => new HttpResponse(null, { status: 500 })),

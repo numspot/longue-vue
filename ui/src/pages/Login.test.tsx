@@ -10,7 +10,20 @@ describe('Login', () => {
   it('renders username and password inputs', () => {
     renderWithRouter(<Login />, { initialPath: '/login' });
     expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^password$/i)).toBeInTheDocument();
+  });
+
+  it('uses the DS password toggle without submitting the form', async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<Login />, { initialPath: '/login' });
+    const password = screen.getByLabelText(/^password$/i);
+    expect(password).toHaveAttribute('data-slot', 'input');
+    expect(password).toHaveAttribute('type', 'password');
+    await user.click(screen.getByRole('button', { name: 'Show password' }));
+    expect(password).toHaveAttribute('type', 'text');
+    expect(screen.queryByText(/username and password required/i)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Hide password' }));
+    expect(password).toHaveAttribute('type', 'password');
   });
 
   it('renders the Sign in button', () => {
@@ -36,7 +49,7 @@ describe('Login', () => {
     const user = userEvent.setup();
     renderWithRouter(<Login />, { initialPath: '/login' });
     await user.type(screen.getByLabelText(/username/i), 'alice');
-    await user.type(screen.getByLabelText(/password/i), 'wrong');
+    await user.type(screen.getByLabelText(/^password$/i), 'wrong');
     await user.click(screen.getByRole('button', { name: /sign in/i }));
     await waitFor(() =>
       expect(screen.getByText(/invalid credentials/i)).toBeInTheDocument(),

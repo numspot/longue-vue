@@ -1,0 +1,5 @@
+/* Keep NumSpot utilities authoritative over legacy page selectors. This lets
+   existing tables/layouts coexist with real DS controls during migration. */
+@layer properties, theme, base, longue-vue, components, utilities;
+@import '@cloud-console/numspot-ds/styles.css';
+@import './styles.css' layer(longue-vue);

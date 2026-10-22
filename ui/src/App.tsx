@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Button, Tag } from '@cloud-console/numspot-ds';
 import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 import * as api from './api';
 import { Logo } from './Logo';
@@ -141,14 +142,26 @@ function Chrome({ me, children }: { me: api.Me; children: React.ReactNode }) {
         <div className="sidebar-brand">
           <Logo iconOnly={collapsed} size={22} />
         </div>
-        <button className="sidebar-toggle" onClick={toggle} title={collapsed ? 'Expand' : 'Collapse'}>
+        <Button
+          className="sidebar-toggle"
+          type="button"
+          variant="ghost"
+          intent="neutral"
+          size="sm"
+          asIconButton
+          onClick={toggle}
+          aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+          aria-expanded={!collapsed}
+          aria-controls="primary-navigation"
+          title={collapsed ? 'Expand' : 'Collapse'}
+        >
           <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
             <line x1={4} y1={6} x2={20} y2={6} />
             <line x1={4} y1={12} x2={20} y2={12} />
             <line x1={4} y1={18} x2={20} y2={18} />
           </svg>
-        </button>
-        <nav className="sidebar-nav">
+        </Button>
+        <nav id="primary-navigation" className="sidebar-nav" aria-label="Primary navigation">
           <span className="sidebar-section-label">Kubernetes</span>
           {link('/clusters', 'Clusters', ClusterIcon)}
           {link('/namespaces', 'Namespaces', NamespaceIcon)}
@@ -190,10 +203,10 @@ function Chrome({ me, children }: { me: api.Me; children: React.ReactNode }) {
       <div className="app-main">
         <header className="app-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: 'auto' }}>
-            <span className="muted" style={{ fontSize: 'var(--fs-base)' }}>
-              {me.username} <span className="pill">{me.role}</span>
+            <span className="session-identity">
+              {me.username} <Tag intent="neutral" size="sm">{me.role}</Tag>
             </span>
-            <button onClick={signOut}>Sign out</button>
+            <Button type="button" variant="outlined" intent="neutral" size="sm" onClick={signOut}>Sign out</Button>
           </div>
         </header>
         <main>{children}</main>

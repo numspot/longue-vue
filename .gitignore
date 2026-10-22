@@ -1,5 +1,6 @@
 # Binaries
 /bin/
+/dist/
 /longue-vue
 /longue-vue-ingest-gw
 /longue-vue-vm-collector

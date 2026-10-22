@@ -1,16 +1,11 @@
 import { FormEvent, useEffect, useState } from 'react';
+import { Button, Callout, CalloutDescription, Input } from '@cloud-console/numspot-ds';
 import { useNavigate, useSearchParams } from 'react-router';
 import { ApiError, getAuthConfig, login } from '../api';
 import { LogoIcon } from '../Logo';
 
-// Username + password login per ADR-0007. A successful POST sets the
-// session cookie server-side; we never see the cookie value in JS.
-//
-// OIDC button, when the backend reports oidc.enabled=true, takes the
-// browser to /v1/auth/oidc/authorize. longue-vue redirects to the IdP; the
-// IdP bounces back to /v1/auth/oidc/callback, which finishes the
-// exchange, mints a session cookie, and redirects to /ui/.
-
+// Session cookies stay server-owned. OIDC still uses the backend's authorize
+// endpoint; the design-system migration changes presentation, not auth.
 const OIDC_ERROR_MESSAGES: Record<string, string> = {
   state_expired_or_unknown: 'Sign-in link expired or already used. Try again.',
   exchange_failed: 'The identity provider rejected the sign-in. Try again or contact an admin.',
@@ -63,95 +58,69 @@ export default function Login() {
     }
   };
 
-  const startOidc = () => {
-    window.location.href = '/v1/auth/oidc/authorize';
-  };
-
   return (
     <div className="auth-page">
       <form className="auth-card" onSubmit={onSubmit} noValidate>
-
-        {/* ── Header ─────────────────────────────────────── */}
         <div className="auth-header">
-          <div className="auth-logo-ring">
-            <LogoIcon size={48} />
-          </div>
+          <div className="auth-logo-ring"><LogoIcon size={48} /></div>
           <div className="auth-brand">
             <span className="auth-brand-light">longue</span>
             <span className="auth-brand-bold">-vue</span>
           </div>
           <div className="auth-tagline">CMDB · SecNumCloud</div>
         </div>
-
-        {/* ── Body ───────────────────────────────────────── */}
         <div className="auth-body">
           <h2 className="auth-title">Sign in</h2>
-
           <p className="auth-hint">
             First install? Check the <code>LONGUE-VUE FIRST-RUN BOOTSTRAP</code> banner
             in the startup log for the initial admin password.
           </p>
-
           {oidcErrorMessage && (
-            <div className="auth-error">{oidcErrorMessage}</div>
+            <Callout intent="error" className="auth-feedback">
+              <CalloutDescription>{oidcErrorMessage}</CalloutDescription>
+            </Callout>
           )}
-
-          <div className="auth-field">
-            <label htmlFor="username">Username</label>
-            <div className="auth-input-wrap">
-              <svg className="auth-input-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
-              </svg>
-              <input
-                id="username"
-                type="text"
-                autoComplete="username"
-                autoFocus
-                placeholder="your username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-              />
-            </div>
+          <div className="auth-fields">
+            <Input
+              id="username"
+              label="Username"
+              type="text"
+              required
+              autoComplete="username"
+              autoFocus
+              placeholder="your username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+            <Input
+              id="password"
+              label="Password"
+              type="password"
+              required
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
           </div>
-
-          <div className="auth-field">
-            <label htmlFor="password">Password</label>
-            <div className="auth-input-wrap">
-              <svg className="auth-input-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-              </svg>
-              <input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                placeholder="••••••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <button className="auth-submit" type="submit" disabled={busy}>
-            {busy ? (
-              <>
-                <span className="auth-spinner" aria-hidden="true" />
-                Signing in…
-              </>
-            ) : 'Sign in'}
-          </button>
-
-          {error && <div className="auth-error">{error}</div>}
-
+          <Button className="auth-action" size="lg" type="submit" loading={busy} aria-label={busy ? 'Signing in…' : undefined}>
+            {busy ? 'Signing in…' : 'Sign in'}
+          </Button>
+          {error && (
+            <Callout intent="error" className="auth-feedback">
+              <CalloutDescription>{error}</CalloutDescription>
+            </Callout>
+          )}
           {oidc?.enabled && (
             <>
               <div className="auth-divider"><span>or</span></div>
-              <button type="button" className="auth-oidc" onClick={startOidc}>
-                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
-                  <circle cx="10" cy="10" r="8" />
-                  <path d="M10 2a8 8 0 010 16M2 10h16" strokeLinecap="round" />
-                </svg>
+              <Button
+                type="button"
+                variant="outlined"
+                className="auth-action"
+                onClick={() => { window.location.href = '/v1/auth/oidc/authorize'; }}
+              >
                 Sign in with {oidc.label || 'OIDC'}
-              </button>
+              </Button>
             </>
           )}
         </div>

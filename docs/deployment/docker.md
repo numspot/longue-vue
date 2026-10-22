@@ -6,6 +6,11 @@
 
 This guide covers running longue-vue locally with Docker for development, testing, and demos.
 
+Public release images use `noui` (backend-only); `/ui/` returns 404. The full UI
+requires authorized private NumSpot GitLab access and an internal build. Its
+compiled design-system assets must not be published to public images or caches.
+See [Private UI builds](../../ui/DESIGN_SYSTEM.md) for details.
+
 ## Start PostgreSQL
 
 ```bash
@@ -51,7 +56,7 @@ longue-vue listens on `http://localhost:8080` by default.
 If you prefer to run longue-vue itself in a container:
 
 ```bash
-make docker-build    # tags longue-vue:dev
+make docker-build    # public/backend-only image, tags longue-vue:dev
 
 docker run --rm \
   --network host \
@@ -59,6 +64,11 @@ docker run --rm \
   -e LONGUE_VUE_BOOTSTRAP_ADMIN_PASSWORD="local-dev-passphrase" \
   longue-vue:dev
 ```
+
+For authorized internal use with the full UI, run `make docker-build-ui` and
+use `longue-vue-internal:dev` instead. That target generates the pinned private
+dependency locally before building the internal image. Do not push that image or
+its build cache to a public registry.
 
 On macOS, replace `--network host` with `-p 8080:8080` and use `host.docker.internal` instead of `localhost` in the DSN:
 

@@ -35,7 +35,7 @@ Guidance for Claude Code working in this repo. For deep design rationale, read `
 | `make test-one TEST=Name`                   | Single test                                                           |
 | `make check`                                | fmt + vet + lint + test (CI-equivalent)                               |
 | `make ui-dev`                               | Vite on :5173, proxies `/v1` + `/healthz` + `/metrics` to :8080       |
-| `make ui-build` / `ui-check` / `ui-install` | UI build / typecheck / `npm ci`                                       |
+| `make ui-build` / `ui-check` / `ui-install` | UI build / typecheck / private DS bootstrap + `npm ci`                                       |
 | `make swagger-sync`                         | Copy `api/openapi/openapi.yaml` → `internal/api/swagger/openapi.yaml` |
 | `make swagger-sync-check`                   | CI guard: fails if the embedded copy drifted from source              |
 

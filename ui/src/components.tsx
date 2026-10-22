@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import { Button, Callout, CalloutDescription, Tag } from '@cloud-console/numspot-ds';
 import type { AsyncState } from './hooks';
 import { PAGE_SIZE_OPTIONS, type PageSize } from './hooks';
 
@@ -17,7 +18,7 @@ export function formatTs(ts?: string | null): string {
 
 // Layer pill — subtle background, always visible.
 export const LayerPill = ({ layer }: { layer: string }) => (
-  <span className="pill">{layer}</span>
+  <Tag intent="neutral" size="sm">{layer}</Tag>
 );
 
 // AsyncView is the switch-on-status pattern the list/detail pages share.
@@ -30,7 +31,11 @@ export function AsyncView<T>({
   children: (data: T) => React.ReactNode;
 }) {
   if (state.status === 'loading') return <p className="loading">Loading…</p>;
-  if (state.status === 'error') return <div className="error">Failed to load: {state.error}</div>;
+  if (state.status === 'error') return (
+    <Callout intent="error">
+      <CalloutDescription>Failed to load: {state.error}</CalloutDescription>
+    </Callout>
+  );
   return <>{children(state.data)}</>;
 }
 
@@ -226,8 +231,8 @@ export function Paginator({
         fontSize: 13,
       }}
     >
-      <button type="button" onClick={onPrev} disabled={!hasPrev}>← Prev</button>
-      <button type="button" onClick={onNext} disabled={!hasNext}>Next →</button>
+      <Button type="button" variant="outlined" size="sm" onClick={onPrev} disabled={!hasPrev}>← Prev</Button>
+      <Button type="button" variant="outlined" size="sm" onClick={onNext} disabled={!hasNext}>Next →</Button>
       <label style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
         Rows per page
         <select

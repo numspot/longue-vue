@@ -96,14 +96,13 @@ describe('CuratedMetadataCard', () => {
     expect(getByText('team-platform')).toBeInTheDocument();
   });
 
-  it('renders criticality as a pill when populated', () => {
+  it('renders criticality as a NumSpot tag when populated', () => {
     const { getByText } = render(
       <MeProvider value={viewerMe}>
         <CuratedMetadataCard values={populatedValues} onSave={noopSave} onSaved={noopSaved} />
       </MeProvider>,
     );
-    const pill = getByText('high');
-    expect(pill.className).toContain('pill');
+    expect(getByText('high').closest('[data-slot="tag"]')).toBeInTheDocument();
   });
 
   it('renders the runbook URL as a link when populated', () => {

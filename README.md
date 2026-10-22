@@ -54,7 +54,14 @@ A Configuration Management Database (CMDB) for Kubernetes environments, aligned 
 - **Helm chart per deployable binary** -- every longue-vue binary (`longue-vue`, `longue-vue-ingest-gw`, `longue-vue-collector`, `longue-vue-vm-collector`) ships with a sibling chart under `charts/`. Independent versioning, shared hardening defaults (ADR-0018).
 - **Audit log** -- every state-changing call is recorded; passwords and tokens are scrubbed; `source` column distinguishes public-listener (`api`) from DMZ-gateway (`ingest_gw`) traffic.
 - **CSV / JSON / ZIP extracts** -- bulk download of Search results and the EOL Dashboard (audit-logged, capped at 50 000 rows).
-- **Embedded web UI** -- React SPA shipped inside the binary at `/ui/`.
+- **Embedded web UI** -- React SPA available in authorized UI-enabled builds at `/ui/`.
+
+> **Build/distribution boundary:** the NumSpot design system is proprietary and is
+> built locally from pinned private GitLab source, never committed here. Public
+> CI, release binaries and container images use `noui` (backend-only; `/ui/` is
+> unavailable). For the full UI, see [Private UI builds](ui/DESIGN_SYSTEM.md).
+> UI-enabled images/binaries and their caches must not be published publicly
+> without NumSpot authorization.
 
 ## Quick start
 
@@ -72,7 +79,9 @@ docker run -d --rm --name longue-vue-pg \
   -e POSTGRES_PASSWORD=longue-vue -e POSTGRES_DB=longue-vue \
   -p 5432:5432 postgres:16-alpine
 
-make ui-build && make build
+make ui-install            # requires authorized internal GitLab access
+make ui-build && make build # UI-enabled internal build
+# Without private access: make build-noui
 LONGUE_VUE_DATABASE_URL="postgres://postgres:longue-vue@localhost:5432/longue-vue?sslmode=disable" \
   LONGUE_VUE_BOOTSTRAP_ADMIN_PASSWORD="changeme-on-first-login" \
   ./bin/longue-vue
@@ -164,11 +173,14 @@ longue-vue ships as **four binaries**: `longue-vue` (the central server with API
 Prerequisites: Go (version in `go.mod`), Node 22+, Docker (for integration tests).
 
 ```bash
-make check    # fmt + vet + lint + test -- the CI-equivalent gate
+make check    # full local gate, including the private UI tests
+# Public CI uses -tags noui for Go checks; see ui/DESIGN_SYSTEM.md.
 ```
 
 Integration tests require `PGX_TEST_DATABASE` pointing at a PostgreSQL instance. See [Docker (local dev)](docs/deployment/docker.md) for the development workflow.
 
 ## License
 
-Apache-2.0 -- see [LICENSE](LICENSE).
+Apache-2.0 -- see [LICENSE](LICENSE). Generated NumSpot design-system dependencies
+and UI-enabled distributions retain their separate proprietary licensing; see
+[Private UI builds](ui/DESIGN_SYSTEM.md).

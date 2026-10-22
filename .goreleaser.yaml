@@ -1,13 +1,12 @@
 version: 2
 
-before:
-  hooks:
-    - sh -c "cd ui && npm ci && npm run build"
-
+# Public releases must not embed the proprietary NumSpot UI.
+# UI-enabled distributions are built locally/in an authorized private pipeline.
 builds:
   - id: longue-vue
     main: ./cmd/longue-vue
     binary: longue-vue
+    tags: [noui]
     env: [CGO_ENABLED=0]
     goos: [linux, darwin]
     goarch: [amd64, arm64]
@@ -55,5 +54,9 @@ changelog:
   disable: true
 
 release:
+  header: |
+    Public longue-vue binaries and container images are backend-only (`noui`):
+    `/ui/` is unavailable. UI-enabled distributions require an authorized private
+    NumSpot design-system build; see the UI build documentation in the repository.
   draft: false
   prerelease: auto

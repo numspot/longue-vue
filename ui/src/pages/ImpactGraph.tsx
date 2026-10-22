@@ -17,15 +17,15 @@ const TYPE_META: Record<
   api.ImpactEntityType,
   { label: string; color: string; path: string }
 > = {
-  cluster: { label: 'Cluster', color: '#5cc8ff', path: '/clusters' },
-  node: { label: 'Node', color: '#a78bfa', path: '/nodes' },
-  namespace: { label: 'Namespace', color: '#60a5fa', path: '/namespaces' },
-  pod: { label: 'Pod', color: '#34d399', path: '/pods' },
-  workload: { label: 'Workload', color: '#fbbf24', path: '/workloads' },
-  service: { label: 'Service', color: '#f472b6', path: '/services' },
-  ingress: { label: 'Ingress', color: '#fb923c', path: '/ingresses' },
-  persistentvolume: { label: 'PV', color: '#94a3b8', path: '/persistentvolumes' },
-  persistentvolumeclaim: { label: 'PVC', color: '#cbd5e1', path: '/persistentvolumeclaims' },
+  cluster: { label: 'Cluster', color: 'var(--color-chart-2)', path: '/clusters' },
+  node: { label: 'Node', color: 'var(--color-chart-6)', path: '/nodes' },
+  namespace: { label: 'Namespace', color: 'var(--color-chart-2)', path: '/namespaces' },
+  pod: { label: 'Pod', color: 'var(--color-chart-5)', path: '/pods' },
+  workload: { label: 'Workload', color: 'var(--color-chart-7)', path: '/workloads' },
+  service: { label: 'Service', color: 'var(--color-chart-4)', path: '/services' },
+  ingress: { label: 'Ingress', color: 'var(--color-chart-3)', path: '/ingresses' },
+  persistentvolume: { label: 'PV', color: 'var(--color-chart-1)', path: '/persistentvolumes' },
+  persistentvolumeclaim: { label: 'PVC', color: 'var(--color-chart-1)', path: '/persistentvolumeclaims' },
 };
 
 // --- Hierarchical layout ----------------------------------------------------
@@ -204,7 +204,7 @@ function GraphSVG({
             refY="3"
             orient="auto"
           >
-            <polygon points="0 0, 8 3, 0 6" fill="#555" />
+            <polygon points="0 0, 8 3, 0 6" fill="var(--color-body-variant)" />
           </marker>
         </defs>
         {layout.edges.map((e, i) => {
@@ -218,7 +218,7 @@ function GraphSVG({
               <path
                 d={`M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`}
                 fill="none"
-                stroke="#444"
+                stroke="var(--color-border-darker)"
                 strokeWidth="1.5"
                 markerEnd="url(#arrowhead)"
               />
@@ -236,7 +236,7 @@ function GraphSVG({
         {layout.nodes.map((ln) => {
           const meta = TYPE_META[ln.node.type] || {
             label: ln.node.type,
-            color: '#888',
+            color: 'var(--color-body-variant)',
             path: '',
           };
           const isRoot = ln.id === rootId;
@@ -249,8 +249,8 @@ function GraphSVG({
                   width={NODE_W}
                   height={NODE_H}
                   rx="6"
-                  fill="#1a1d21"
-                  stroke={isRoot ? meta.color : '#333'}
+                  fill="var(--color-surface-first)"
+                  stroke={isRoot ? meta.color : 'var(--color-border-darker)'}
                   strokeWidth={isRoot ? 2.5 : 1}
                 />
                 <text

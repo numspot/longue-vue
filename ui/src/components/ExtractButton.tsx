@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
+import { Button, Menu, MenuContent, MenuItem, MenuTrigger } from '@cloud-console/numspot-ds';
 import type { ExtractFormat } from '../api';
 
 export interface ExtractButtonProps {
@@ -9,30 +10,15 @@ export interface ExtractButtonProps {
   onTruncation?: (truncated: boolean) => void;
 }
 
-/**
- * Small dropdown button: clicking opens a menu of [CSV, JSON]; clicking
- * an item invokes onExtract(format). Used on Search and EOL Dashboard.
- */
+/** NumSpot's menu provides keyboard navigation, Escape, and outside dismissal. */
 export function ExtractButton({ label, disabled, onExtract, onTruncation }: ExtractButtonProps) {
-  const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDocClick = (e: MouseEvent) => {
-      if (!wrapperRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, [open]);
 
   const choose = async (format: ExtractFormat) => {
-    setOpen(false);
     setBusy(true);
     try {
       const result = await onExtract(format);
-      if (onTruncation) onTruncation(result.truncated);
+      onTruncation?.(result.truncated);
     } catch (e) {
       console.error('extract failed', e);
     } finally {
@@ -41,22 +27,27 @@ export function ExtractButton({ label, disabled, onExtract, onTruncation }: Extr
   };
 
   return (
-    <div ref={wrapperRef} className="extract-button">
-      <button
-        type="button"
-        disabled={disabled || busy}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-      >
-        {busy ? `${label}…` : label} ▾
-      </button>
-      {open && (
-        <ul role="menu" className="extract-menu">
-          <li role="menuitem" onClick={() => choose('csv')}>CSV</li>
-          <li role="menuitem" onClick={() => choose('json')}>JSON</li>
-        </ul>
-      )}
-    </div>
+    <Menu>
+      <MenuTrigger asChild>
+        <Button
+          type="button"
+          variant="outlined"
+          size="sm"
+          disabled={disabled}
+          loading={busy}
+          aria-label={busy ? `${label}…` : undefined}
+        >
+          {busy ? `${label}…` : label} ▾
+        </Button>
+      </MenuTrigger>
+      <MenuContent align="end" onCloseAutoFocus={(event) => {
+        // The DS's default prevents focus restoration; keyboard users need it.
+        // When loading, the trigger is disabled until the download completes.
+        if (busy) event.preventDefault();
+      }}>
+        <MenuItem onSelect={() => { void choose('csv'); }}>CSV</MenuItem>
+        <MenuItem onSelect={() => { void choose('json'); }}>JSON</MenuItem>
+      </MenuContent>
+    </Menu>
   );
 }

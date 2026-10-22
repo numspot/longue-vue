@@ -1,6 +1,8 @@
-# Legacy-builder-compatible variant of Dockerfile (no BuildKit features).
-# Used only for local k3d testing when buildx isn't installed.
-# Strips `# syntax=` and every `RUN --mount=type=cache,...` directive.
+# INTERNAL ONLY: UI-enabled image for authorized NumSpot use.
+# Run `make docker-build-ui` to generate the private dependency first.
+# Dockerfile.local.dockerignore admits only the pinned local archive; the public
+# Dockerfile/context excludes all generated dependencies. Do not export this
+# image or its build cache to a public registry/cache.
 
 ARG GO_VERSION=1.26
 ARG NODE_VERSION=22-alpine
@@ -8,6 +10,8 @@ ARG NODE_VERSION=22-alpine
 FROM node:${NODE_VERSION} AS ui-build
 WORKDIR /src/ui
 COPY ui/package.json ui/package-lock.json ./
+# Generated locally with `make ui-design-system`; never committed.
+COPY ui/.generated/ ./.generated/
 RUN npm ci
 COPY ui/ ./
 RUN npm run build

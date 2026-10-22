@@ -1,6 +1,8 @@
-// SearchInput is the uniform list search box (ADR-0042 phase 2).
-// Debouncing lives in useListControls — this component is presentation
-// only. The tooltip documents the `*` glob convention the server applies.
+import { useId } from 'react';
+import { Label, Search } from '@cloud-console/numspot-ds';
+
+// Debouncing lives in useListControls. Keep the existing search contract while
+// using NumSpot's search control (including its controlled clear action).
 export function SearchInput({
   value,
   onChange,
@@ -12,16 +14,19 @@ export function SearchInput({
   placeholder?: string;
   label?: string;
 }) {
+  const id = useId();
   return (
-    <label className="list-search">
-      <span>{label}</span>
-      <input
-        type="search"
+    <div className="list-search">
+      <Label htmlFor={id}>{label}</Label>
+      <Search
+        id={id}
+        size="md"
         value={value}
         placeholder={placeholder}
         title="Plain text matches anywhere in the name. Use * to anchor: du* = starts with, *du = ends with."
         onChange={(e) => onChange(e.target.value)}
+        onClear={() => onChange('')}
       />
-    </label>
+    </div>
   );
 }

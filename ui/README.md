@@ -35,6 +35,37 @@ scope and rationale.
   (cleared on tab close, per ADR-0006). No cookies, no CORS — the SPA is
   same-origin as the API.
 
+## NumSpot design system
+
+The UI uses the official `@cloud-console/numspot-ds` React package. Its pinned
+private source is built locally into a Git-ignored dependency directory; no
+proprietary package, fonts or bundle is committed. Run `make ui-install` (or
+`npm run setup` from this directory) **before** other UI commands; this requires
+authorized access to internal GitLab. Provenance, checksums and setup instructions
+are recorded in [Private design-system builds](./DESIGN_SYSTEM.md).
+
+**Public CI/releases are backend-only (`noui`); public binaries/images do not
+serve `/ui/`.** Real UI tests and UI-enabled distributions run locally or in a
+private authorized pipeline, not in public GitHub artifact/cache jobs.
+
+[design-system.css](./src/design-system.css) loads NumSpot's generated styles and
+fonts before the existing page layouts. [styles.css](./src/styles.css) maps the
+CMDB's legacy variables to NumSpot's default light-theme tokens; it does not
+redefine the design system's tokens. CSS layers let DS controls retain their own
+appearance, while native controls on not-yet-migrated forms receive a compatible
+fallback. Auth fields/buttons, navigation actions, list search/pagination, layer
+and role tags, shared errors, metadata actions and extract menus use actual DS
+components. Existing data tables and specialized inventory layouts are retained.
+
+Use package exports directly for new controls:
+
+```tsx
+import { Button, Input } from '@cloud-console/numspot-ds';
+```
+
+No Tailwind build plugin is required by the consumer, and Rethink Sans is served
+locally under the existing `font-src 'self'` policy rather than fetched externally.
+
 ## Development loop
 
 ```bash
@@ -74,6 +105,20 @@ cd ui && npm run test:watch     # interactive
 cd ui && npm run test:coverage  # writes coverage/ HTML report
 ```
 
+Browser checks under [e2e](./e2e/design-system.spec.ts) exercise the production
+bundle with mocked API responses and the deployed Content Security Policy. They
+verify actual DS dimensions/colors, font loading, legacy-filter compatibility
+and navigation interactions (CSS regressions are invisible to jsdom):
+
+```bash
+cd ui
+npx playwright install chromium   # once per machine / browser upgrade
+npm run test:e2e                 # builds first; no backend required
+```
+
+An existing Chromium executable can be selected with
+`PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` instead of installing a managed browser.
+
 Test files are co-located next to the unit they cover (`foo.tsx` →
 `foo.test.tsx`). Shared infrastructure (MSW server, fixtures, render
 helper) lives in `src/test/`.
@@ -100,7 +145,8 @@ ui/
     ├── hooks.ts          # useResource / useResources (loading/error/data)
     ├── components.tsx    # shared primitives: AsyncView, LayerPill,
     │                     # LoadBalancerAddresses, Labels, KV, IdLink, …
-    ├── styles.css        # dark theme, status pills, LB chips, kv-list grid
+    ├── design-system.css # NumSpot styles + cascade layer order
+    ├── styles.css        # semantic token bridge + CMDB layouts
     └── pages/
         ├── Login.tsx     # bearer token -> sessionStorage
         ├── Lists.tsx     # all nine list pages in one file

@@ -11,6 +11,11 @@
 
 # Local build output
 bin/
+/longue-vue
+/longue-vue-ingest-gw
+/longue-vue-vm-collector
+/longue-vue-collector
+*.zip
 *.exe
 *.test
 coverage.*
@@ -20,6 +25,11 @@ coverage.*
 # context and avoids leaking a host-built dist into the Go stage.
 ui/node_modules
 ui/dist
+ui/.generated
+ui/vendor
+ui/test-results
+ui/playwright-report
+dist/
 
 # Env files
 .env

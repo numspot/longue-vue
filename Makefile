@@ -9,7 +9,7 @@ VM_COLLECTOR_BINARY := longue-vue-vm-collector
 IMAGE_NAME ?= longue-vue
 IMAGE_TAG  ?= dev
 
-.PHONY: all build build-noui build-collector build-vm-collector generate swagger-sync swagger-sync-check test test-one vet lint fmt tidy check clean docker-build docker-build-collector docker-build-vm-collector docker-build-ingest-gw ui-install ui-build ui-dev ui-check ui-test
+.PHONY: all build build-noui build-collector build-vm-collector generate swagger-sync swagger-sync-check test test-one vet lint fmt tidy check clean docker-build docker-build-collector docker-build-vm-collector docker-build-ingest-gw ui-install ui-design-system ui-build ui-dev ui-check ui-test docker-build-ui
 
 all: build
 
@@ -19,7 +19,7 @@ build:
 	go build $(LDFLAGS) -o $(BIN_DIR)/$(BINARY) ./cmd/$(BINARY)
 
 # Compile longue-vue without the embedded UI — /ui/ replies 404. No Node/npm
-# required. CI and release builds do not use this target.
+# required. Public CI/releases use this mode to avoid distributing the private UI.
 build-noui:
 	go build -tags noui $(LDFLAGS) -o $(BIN_DIR)/$(BINARY) ./cmd/$(BINARY)
 
@@ -32,8 +32,12 @@ build-collector:
 build-vm-collector:
 	go build $(LDFLAGS) -o $(BIN_DIR)/$(VM_COLLECTOR_BINARY) ./cmd/$(VM_COLLECTOR_BINARY)
 
+# Requires authorized network/Git access to the internal NumSpot design system.
+ui-design-system:
+	cd ui && npm run design-system:prepare
+
 ui-install:
-	cd ui && npm ci
+	cd ui && npm run setup
 
 ui-build:
 	cd ui && npm run build
@@ -45,7 +49,7 @@ ui-check:
 	cd ui && npm run typecheck
 
 ui-test:
-	cd ui && npm test
+	cd ui && npm run test:setup && npm test
 
 generate:
 	go generate ./...
@@ -61,6 +65,14 @@ docker-build:
 	docker build \
 		--build-arg VERSION=$(VERSION) \
 		-t $(IMAGE_NAME):$(IMAGE_TAG) \
+		.
+
+# INTERNAL ONLY: builds a UI-enabled image; never publish it/cache publicly.
+docker-build-ui: ui-design-system
+	docker build \
+		-f Dockerfile.local \
+		--build-arg VERSION=$(VERSION) \
+		-t $(IMAGE_NAME)-internal:$(IMAGE_TAG) \
 		.
 
 docker-build-collector:

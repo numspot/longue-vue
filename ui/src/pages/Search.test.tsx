@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import * as api from '../api';
 import ImageSearch from './Search';
 import { renderWithRouter } from '../test/render';
@@ -90,8 +91,9 @@ describe('Search page extract buttons', () => {
     // The Extract dropdown buttons (aria-haspopup="menu") are after the zip button.
     // Index 0 is "Extract all (.zip)", index 1 is the Workloads Extract dropdown.
     const extractButtons = screen.getAllByRole('button', { name: /extract/i });
-    fireEvent.click(extractButtons[1]);
-    fireEvent.click(screen.getByRole('menuitem', { name: /csv/i }));
+    const user = userEvent.setup();
+    await user.click(extractButtons[1]);
+    await user.click(screen.getByRole('menuitem', { name: /csv/i }));
     await waitFor(() => expect(spy).toHaveBeenCalledWith('nginx', 'workloads', 'csv'));
     spy.mockRestore();
   });

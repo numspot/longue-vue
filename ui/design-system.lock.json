@@ -1,0 +1,9 @@
+{
+  "repository": "https://gitlab.tooling.cloudgouv-eu-west-1.numspot.internal/cloud-console/design-system.git",
+  "tag": "v1.4.0",
+  "commit": "d453905caa6fe72cc147a0c58775fb5667078a95",
+  "version": "1.4.0",
+  "archive": "cloud-console-numspot-ds-1.4.0.tgz",
+  "archiveFormat": "canonical-gzip-store-v1",
+  "sha256": "9b8813b850ba9d4a99c8565cea4c77a4c1a9d37ca6847e6abb0b2ea949b280d6"
+}

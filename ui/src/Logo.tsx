@@ -92,7 +92,7 @@ export function Logo({ iconOnly = false, size = 24, className, style }: LogoProp
           style={{
             fontFamily: 'var(--font-sans)',
             fontSize: '0.92rem',
-            fontWeight: 200,
+            fontWeight: 400,
             color: 'var(--fg-muted)',
             letterSpacing: '0.06em',
           }}
@@ -103,7 +103,7 @@ export function Logo({ iconOnly = false, size = 24, className, style }: LogoProp
           style={{
             fontFamily: 'var(--font-sans)',
             fontSize: '0.92rem',
-            fontWeight: 800,
+            fontWeight: 600,
             color: 'var(--accent)',
             letterSpacing: '-0.03em',
           }}

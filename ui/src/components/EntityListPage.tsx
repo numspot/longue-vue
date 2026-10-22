@@ -3,6 +3,7 @@
 // Paginator, loading/error/empty tri-state, and an `entities` table whose
 // sortable headers drive server-side sorting through URL-synced controls.
 // Columns without a sortKey (computed/lookup columns) render plain <th>.
+import { Callout, CalloutDescription } from '@cloud-console/numspot-ds';
 import * as api from '../api';
 import { usePagedList, useListControls } from '../hooks';
 import { Empty, Paginator } from '../components';
@@ -81,7 +82,9 @@ export function EntityListPage<T>({
         // so it can branch on typed errors; the fallback div shows the
         // flattened message.
         errorRenderer?.(list.errorCause ?? list.error) ?? (
-          <div className="error">Failed to load: {list.error}</div>
+          <Callout intent="error">
+            <CalloutDescription>Failed to load: {list.error}</CalloutDescription>
+          </Callout>
         )
       ) : list.items.length === 0 ? (
         <Empty message={emptyMessage} />
