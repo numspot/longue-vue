@@ -1,5 +1,5 @@
 {
-  ".": "1.15.1",
+  ".": "1.15.2",
   "charts/longue-vue": "0.28.0",
   "charts/longue-vue-collector": "2.2.0",
   "charts/longue-vue-ingest-gw": "0.7.0",

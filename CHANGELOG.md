@@ -6,6 +6,14 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 — the REST and database contracts may still change incompatibly before
 `v1.0.0`.
 
+## [1.15.2](https://github.com/numspot/longue-vue/compare/v1.15.1...v1.15.2) (2026-11-03)
+
+
+### Bug Fixes
+
+* **deps:** bump github.com/go-jose/go-jose/v4 ([c328fe5](https://github.com/numspot/longue-vue/commit/c328fe546e603739807c0eb98e52ed302898b299))
+* **deps:** bump github.com/go-jose/go-jose/v4 from 4.1.4 to 4.1.6 in the go_modules group across 1 directory ([cae23be](https://github.com/numspot/longue-vue/commit/cae23be664805ebf4314aa2b0ec74f5ceb69da38))
+
 ## [1.15.1](https://github.com/numspot/longue-vue/compare/v1.15.0...v1.15.1) (2026-10-23)
 
 
