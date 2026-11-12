@@ -6,6 +6,14 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 — the REST and database contracts may still change incompatibly before
 `v1.0.0`.
 
+## [1.15.3](https://github.com/numspot/longue-vue/compare/v1.15.2...v1.15.3) (2026-11-12)
+
+
+### Bug Fixes
+
+* **deps:** bump x/net to 0.62.0 and Go toolchain to 1.26.11 ([e88aee5](https://github.com/numspot/longue-vue/commit/e88aee59850086b294052ea9e63eb5ee2267255c))
+* **deps:** bump x/net to 0.62.0 and Go toolchain to 1.26.11 ([568e57a](https://github.com/numspot/longue-vue/commit/568e57aee78f43416e33696b37a3e94605009501))
+
 ## [1.15.2](https://github.com/numspot/longue-vue/compare/v1.15.1...v1.15.2) (2026-11-03)
 
 
