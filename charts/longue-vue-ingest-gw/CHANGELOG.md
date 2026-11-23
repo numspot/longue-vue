@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.2](https://github.com/numspot/longue-vue/compare/chart-longue-vue-ingest-gw-v0.7.1...chart-longue-vue-ingest-gw-v0.7.2) (2026-11-23)
+
+
+### Bug Fixes
+
+* **chart-longue-vue-ingest-gw:** render numeric env values as integers ([2c792a5](https://github.com/numspot/longue-vue/commit/2c792a53bb3cfb3be62d54de3124f203ac6fc6cf))
+* **chart-longue-vue-ingest-gw:** render numeric env values as integers ([c8ff09e](https://github.com/numspot/longue-vue/commit/c8ff09e2661ea08a2714f6833d94695a225fb06a))
+
 ## [0.7.1](https://github.com/numspot/longue-vue/compare/chart-longue-vue-ingest-gw-v0.7.0...chart-longue-vue-ingest-gw-v0.7.1) (2026-11-23)
 
 
