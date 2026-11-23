@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.1](https://github.com/numspot/longue-vue/compare/chart-longue-vue-ingest-gw-v0.7.0...chart-longue-vue-ingest-gw-v0.7.1) (2026-11-23)
+
+
+### Bug Fixes
+
+* **chart-longue-vue-ingest-gw:** do not duplicate the component label on the metrics Service ([12fa3cb](https://github.com/numspot/longue-vue/commit/12fa3cb7765c1afaebdb0030a4c1355f5494a614))
+* **chart-longue-vue-ingest-gw:** do not duplicate the component label on the metrics Service ([ac9953e](https://github.com/numspot/longue-vue/commit/ac9953e397675edf49be12429c62eac90ac8d167))
+
 ## [0.7.0](https://github.com/sthalbert/Longue-Vue/compare/chart-longue-vue-ingest-gw-v0.6.2...chart-longue-vue-ingest-gw-v0.7.0) (2026-08-19)
 
 
