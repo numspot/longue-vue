@@ -6,6 +6,14 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 — the REST and database contracts may still change incompatibly before
 `v1.0.0`.
 
+## [1.15.4](https://github.com/numspot/longue-vue/compare/v1.15.3...v1.15.4) (2026-11-23)
+
+
+### Bug Fixes
+
+* **chart-longue-vue-ingest-gw:** do not duplicate the component label on the metrics Service ([12fa3cb](https://github.com/numspot/longue-vue/commit/12fa3cb7765c1afaebdb0030a4c1355f5494a614))
+* **chart-longue-vue-ingest-gw:** do not duplicate the component label on the metrics Service ([ac9953e](https://github.com/numspot/longue-vue/commit/ac9953e397675edf49be12429c62eac90ac8d167))
+
 ## [1.15.3](https://github.com/numspot/longue-vue/compare/v1.15.2...v1.15.3) (2026-11-12)
 
 

@@ -1,7 +1,7 @@
 {
-  ".": "1.15.3",
+  ".": "1.15.4",
   "charts/longue-vue": "0.28.0",
   "charts/longue-vue-collector": "2.2.0",
-  "charts/longue-vue-ingest-gw": "0.7.0",
+  "charts/longue-vue-ingest-gw": "0.7.1",
   "charts/longue-vue-vm-collector": "0.7.0"
 }
