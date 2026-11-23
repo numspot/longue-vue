@@ -6,6 +6,14 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 — the REST and database contracts may still change incompatibly before
 `v1.0.0`.
 
+## [1.15.5](https://github.com/numspot/longue-vue/compare/v1.15.4...v1.15.5) (2026-11-23)
+
+
+### Bug Fixes
+
+* **chart-longue-vue-ingest-gw:** render numeric env values as integers ([2c792a5](https://github.com/numspot/longue-vue/commit/2c792a53bb3cfb3be62d54de3124f203ac6fc6cf))
+* **chart-longue-vue-ingest-gw:** render numeric env values as integers ([c8ff09e](https://github.com/numspot/longue-vue/commit/c8ff09e2661ea08a2714f6833d94695a225fb06a))
+
 ## [1.15.4](https://github.com/numspot/longue-vue/compare/v1.15.3...v1.15.4) (2026-11-23)
 
 
