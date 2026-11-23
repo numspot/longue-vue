@@ -27,8 +27,10 @@ kind: Service
 metadata:
   name: {{ include "longue-vue-ingest-gw.fullname" . }}-metrics
   labels:
-    {{- include "longue-vue-ingest-gw.labels" . | nindent 4 }}
-    app.kubernetes.io/component: ingest-gateway-metrics
+    {{- /* The common labels already set app.kubernetes.io/component: a second
+    key makes the manifest invalid YAML for strict parsers (Flux post-render
+    fails with "mapping key already defined"). Override the value instead. */}}
+    {{- include "longue-vue-ingest-gw.labels" . | replace "app.kubernetes.io/component: ingest-gateway" "app.kubernetes.io/component: ingest-gateway-metrics" | nindent 4 }}
 spec:
   type: ClusterIP
   ports:
