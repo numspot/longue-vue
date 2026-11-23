@@ -72,9 +72,9 @@ spec:
             - name: LONGUE_VUE_INGEST_GW_CACHE_NEGATIVE_TTL
               value: {{ .Values.cache.negativeTtl | quote }}
             - name: LONGUE_VUE_INGEST_GW_CACHE_MAX_ENTRIES
-              value: {{ .Values.cache.maxEntries | quote }}
+              value: {{ .Values.cache.maxEntries | int64 | quote }}
             - name: LONGUE_VUE_INGEST_GW_MAX_BODY_BYTES
-              value: {{ .Values.maxBodyBytes | quote }}
+              value: {{ .Values.maxBodyBytes | int64 | quote }}
             - name: LONGUE_VUE_INGEST_GW_REQUIRED_SCOPE
               value: {{ .Values.requiredScope | quote }}
             - name: LONGUE_VUE_INGEST_GW_LOG_LEVEL
