@@ -54,7 +54,9 @@ type Config struct {
 	CACert string
 
 	// ClientCert and ClientKey are paths to a PEM-encoded client
-	// certificate and key for mTLS. Both must be set or both empty.
+	// certificate and key for mTLS. Both must be set or both empty. The
+	// pair is reloaded when the files change, so a renewed certificate is
+	// picked up without a restart.
 	ClientCert string
 	ClientKey  string
 
@@ -117,14 +119,16 @@ func buildTransport(cfg *Config) (*http.Transport, error) {
 	}
 
 	if cfg.ClientCert != "" && cfg.ClientKey != "" {
-		cert, err := tls.LoadX509KeyPair(cfg.ClientCert, cfg.ClientKey)
+		source, err := newClientCertSource(cfg.ClientCert, cfg.ClientKey)
 		if err != nil {
-			return nil, fmt.Errorf("load client cert/key: %w", err)
+			return nil, err
 		}
 		if transport.TLSClientConfig == nil {
 			transport.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS12}
 		}
-		transport.TLSClientConfig.Certificates = []tls.Certificate{cert}
+		// A callback rather than a fixed Certificates list: the pair is
+		// re-read when it is renewed on disk.
+		transport.TLSClientConfig.GetClientCertificate = source.getClientCertificate
 	}
 
 	return transport, nil
