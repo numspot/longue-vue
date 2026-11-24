@@ -270,6 +270,7 @@ No write access to Kubernetes. The collector is read-only.
 
 - The longue-vue (or gateway) TLS certificate is signed by a private CA. Set `LONGUE_VUE_CA_CERT` to the CA PEM file.
 - For mTLS, ensure both `LONGUE_VUE_CLIENT_CERT` and `LONGUE_VUE_CLIENT_KEY` are set and the files are mounted.
+- The client certificate and key are re-read when the files change (for example when cert-manager renews the secret): no restart is needed. If the new files cannot be loaded, the collector keeps the previous certificate and logs `client certificate reload failed`.
 
 ### 503 from gateway
 

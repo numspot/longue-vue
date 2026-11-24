@@ -83,7 +83,7 @@ See [ADR-0045](adr/adr-0045-kube-tagged-vm-reconciliation.md), `GET /v1/kube-nod
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `LONGUE_VUE_CA_CERT` | no | system CA pool | Path to a PEM-encoded CA certificate for verifying the longue-vue (or gateway) TLS certificate. Required when longue-vue uses a private CA. |
-| `LONGUE_VUE_CLIENT_CERT` | no | -- | Path to a PEM-encoded client certificate for mTLS to a gateway. |
+| `LONGUE_VUE_CLIENT_CERT` | no | -- | Path to a PEM-encoded client certificate for mTLS to a gateway. Re-read when the file changes, so a renewed certificate needs no restart. |
 | `LONGUE_VUE_CLIENT_KEY` | no | -- | Path to a PEM-encoded client private key for mTLS. Required when `LONGUE_VUE_CLIENT_CERT` is set. |
 | `LONGUE_VUE_EXTRA_HEADERS` | no | -- | Comma-separated `key=value` pairs injected into every outbound HTTP request to longue-vue. Useful for gateway routing or tenant identification. Example: `X-Tenant-Id=acme-prod,X-Route-Key=longue-vue`. |
 
