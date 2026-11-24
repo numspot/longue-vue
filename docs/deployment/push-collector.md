@@ -164,6 +164,7 @@ Key variables for the push collector:
 | `LONGUE_VUE_API_TOKEN` | yes | PAT with `write` scope. |
 | `LONGUE_VUE_CLUSTER_NAME` | yes | Name of this cluster. Auto-created if it doesn't exist (ADR-0011). |
 | `LONGUE_VUE_COLLECTOR_INTERVAL` | no | Polling interval (default `5m`). |
+| `LONGUE_VUE_COLLECTOR_START_JITTER` | no | Delay the first poll by a random duration below this value, capped at the interval (default `0`, immediate). Set it to the interval when many collectors can restart together (rollout across clusters), so their polls do not hit longue-vue at the same instant. |
 | `LONGUE_VUE_COLLECTOR_RECONCILE` | no | Delete stale rows (default `true`). |
 
 ## Gateway and proxy support

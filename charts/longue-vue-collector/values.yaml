@@ -56,6 +56,10 @@ kubeconfig:
 # ANSSI cartography fidelity (deletes rows that disappeared from the live
 # listing) — only flip to false if you have a reason.
 interval: 5m
+# Delay the first poll by a random duration below this value (capped at the
+# interval). Collectors restarted together otherwise poll at the same instant
+# and stack their pushes on longue-vue. Empty = immediate first poll.
+startJitter: ""
 fetchTimeout: 30s
 reconcile: true
 
