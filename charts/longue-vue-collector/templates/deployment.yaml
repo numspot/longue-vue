@@ -40,6 +40,10 @@ spec:
               value: {{ required "clusterName is required" .Values.clusterName | quote }}
             - name: LONGUE_VUE_COLLECTOR_INTERVAL
               value: {{ .Values.interval | quote }}
+            {{- if .Values.startJitter }}
+            - name: LONGUE_VUE_COLLECTOR_START_JITTER
+              value: {{ .Values.startJitter | quote }}
+            {{- end }}
             - name: LONGUE_VUE_COLLECTOR_FETCH_TIMEOUT
               value: {{ .Values.fetchTimeout | quote }}
             - name: LONGUE_VUE_COLLECTOR_RECONCILE

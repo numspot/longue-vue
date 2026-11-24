@@ -78,6 +78,7 @@ func TestLoadCollectorConfig_CustomValues(t *testing.T) {
 	t.Setenv("LONGUE_VUE_CLUSTER_NAME", "example-prod")
 	t.Setenv("LONGUE_VUE_KUBECONFIG", "/etc/kube/config")
 	t.Setenv("LONGUE_VUE_COLLECTOR_INTERVAL", "30s")
+	t.Setenv("LONGUE_VUE_COLLECTOR_START_JITTER", "20s")
 	t.Setenv("LONGUE_VUE_COLLECTOR_FETCH_TIMEOUT", "1m")
 	t.Setenv("LONGUE_VUE_COLLECTOR_RECONCILE", "false")
 
@@ -91,11 +92,25 @@ func TestLoadCollectorConfig_CustomValues(t *testing.T) {
 	if cfg.interval != 30*time.Second {
 		t.Errorf("interval: want 30s, got %v", cfg.interval)
 	}
+	if cfg.startJitter != 20*time.Second {
+		t.Errorf("startJitter: want 20s, got %v", cfg.startJitter)
+	}
 	if cfg.fetchTimeout != 1*time.Minute {
 		t.Errorf("fetchTimeout: want 1m, got %v", cfg.fetchTimeout)
 	}
 	if cfg.reconcile {
 		t.Error("reconcile: want false, got true")
+	}
+}
+
+func TestLoadCollectorConfig_InvalidStartJitter(t *testing.T) {
+	t.Setenv("LONGUE_VUE_SERVER_URL", "https://longue-vue.test:8080")
+	t.Setenv("LONGUE_VUE_API_TOKEN", "tok")
+	t.Setenv("LONGUE_VUE_CLUSTER_NAME", "test-cluster")
+	t.Setenv("LONGUE_VUE_COLLECTOR_START_JITTER", "soon")
+
+	if _, err := loadCollectorConfig(); err == nil {
+		t.Fatal("expected an error for an invalid start jitter")
 	}
 }
 

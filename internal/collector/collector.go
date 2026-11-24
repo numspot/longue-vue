@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math/rand/v2"
 	"time"
 
 	"github.com/google/uuid"
@@ -394,6 +395,21 @@ type Collector struct {
 	interval       time.Duration
 	fetchTimeout   time.Duration
 	reconcile      bool
+	startJitter    time.Duration
+	// jitter draws the start delay in [0, upper); replaced in tests.
+	jitter func(upper time.Duration) time.Duration
+}
+
+// Option customises a Collector built by New.
+type Option func(*Collector)
+
+// WithStartJitter delays the first poll by a random duration in [0, d),
+// capped at the polling interval. Collectors restarted together (a rollout
+// across clusters, a node drain) otherwise poll at the same instant and keep
+// doing so every interval, which stacks their pushes on the server. Zero or
+// a negative duration keeps the immediate first poll.
+func WithStartJitter(d time.Duration) Option {
+	return func(c *Collector) { c.startJitter = d }
 }
 
 // New returns a Collector. fetchTimeout bounds each poll; interval is the
@@ -408,7 +424,7 @@ type Collector struct {
 //
 // If the supplied store also implements KyvernoStore (ADR-0043),
 // Kyverno policy reconciliation is enabled automatically.
-func New(st CmdbStore, source KubeSource, clusterName string, interval, fetchTimeout time.Duration, reconcile bool) *Collector {
+func New(st CmdbStore, source KubeSource, clusterName string, interval, fetchTimeout time.Duration, reconcile bool, opts ...Option) *Collector {
 	c := &Collector{
 		store:        st,
 		source:       source,
@@ -416,6 +432,10 @@ func New(st CmdbStore, source KubeSource, clusterName string, interval, fetchTim
 		interval:     interval,
 		fetchTimeout: fetchTimeout,
 		reconcile:    reconcile,
+		jitter:       rand.N[time.Duration],
+	}
+	for _, opt := range opts {
+		opt(c)
 	}
 	if nps, ok := st.(NetPolStore); ok {
 		c.netpolStore = nps
@@ -433,11 +453,25 @@ func New(st CmdbStore, source KubeSource, clusterName string, interval, fetchTim
 	return c
 }
 
-// Run polls until ctx is cancelled. A poll happens immediately on start and
-// every interval thereafter.
+// Run polls until ctx is cancelled. A poll happens on start, after the start
+// jitter if one is set, and every interval thereafter.
 func (c *Collector) Run(ctx context.Context) error {
 	slog.Info("collector starting", slog.String("cluster_name", c.clusterName), slog.Duration("interval", c.interval))
 
+	if delay := c.startDelay(); delay > 0 {
+		slog.Info("collector: delaying first poll",
+			slog.String("cluster_name", c.clusterName), slog.Duration("delay", delay))
+		timer := time.NewTimer(delay)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			slog.Info("collector stopping", slog.Any("reason", ctx.Err()))
+			return fmt.Errorf("collector stopped: %w", ctx.Err())
+		case <-timer.C:
+		}
+	}
+
+	// Started after the delay, so the following polls keep the shifted phase.
 	ticker := time.NewTicker(c.interval)
 	defer ticker.Stop()
 
@@ -452,6 +486,16 @@ func (c *Collector) Run(ctx context.Context) error {
 			c.poll(ctx)
 		}
 	}
+}
+
+// startDelay draws the delay before the first poll: zero without start
+// jitter, otherwise a random duration below the jitter and the interval.
+func (c *Collector) startDelay() time.Duration {
+	upper := min(c.startJitter, c.interval)
+	if upper <= 0 {
+		return 0
+	}
+	return c.jitter(upper)
 }
 
 // poll performs one polling cycle: refresh cluster version, then ingest nodes.

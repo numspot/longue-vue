@@ -47,6 +47,7 @@ type collectorConfig struct {
 	clusterName  string
 	kubeconfig   string
 	interval     time.Duration
+	startJitter  time.Duration
 	fetchTimeout time.Duration
 	reconcile    bool
 	// kubeQPS / kubeBurst tune the client-go rate limiter for calls from
@@ -77,6 +78,10 @@ func loadCollectorConfig() (collectorConfig, error) {
 	if err != nil {
 		return collectorConfig{}, err
 	}
+	startJitter, err := parseDurationEnv("LONGUE_VUE_COLLECTOR_START_JITTER", 0)
+	if err != nil {
+		return collectorConfig{}, err
+	}
 	fetchTimeout, err := parseDurationEnv("LONGUE_VUE_COLLECTOR_FETCH_TIMEOUT", 30*time.Second)
 	if err != nil {
 		return collectorConfig{}, err
@@ -100,6 +105,7 @@ func loadCollectorConfig() (collectorConfig, error) {
 		clusterName:  clusterName,
 		kubeconfig:   os.Getenv("LONGUE_VUE_KUBECONFIG"),
 		interval:     interval,
+		startJitter:  startJitter,
 		fetchTimeout: fetchTimeout,
 		reconcile:    reconcile,
 		kubeQPS:      kubeQPS,
@@ -135,7 +141,8 @@ func run() error {
 	}
 
 	// Wire the collector.
-	coll := collector.New(apiStore, source, cfg.clusterName, cfg.interval, cfg.fetchTimeout, cfg.reconcile)
+	coll := collector.New(apiStore, source, cfg.clusterName, cfg.interval, cfg.fetchTimeout, cfg.reconcile,
+		collector.WithStartJitter(cfg.startJitter))
 
 	// Signal handling: SIGINT/SIGTERM → context cancel → collector stops.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
