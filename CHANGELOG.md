@@ -6,6 +6,14 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 — the REST and database contracts may still change incompatibly before
 `v1.0.0`.
 
+## [1.17.0](https://github.com/numspot/longue-vue/compare/v1.16.0...v1.17.0) (2026-11-24)
+
+
+### Features
+
+* **collector:** reload the mTLS client certificate when it is renewed ([4b11771](https://github.com/numspot/longue-vue/commit/4b11771cc3af402a3a7651b18ab78f7e58bd558b))
+* **collector:** reload the mTLS client certificate when it is renewed ([8813664](https://github.com/numspot/longue-vue/commit/8813664d55ad026ff2c7027d60711f30d243f30a))
+
 ## [1.16.0](https://github.com/numspot/longue-vue/compare/v1.15.5...v1.16.0) (2026-11-24)
 
 
