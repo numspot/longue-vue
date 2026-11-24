@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.3.0](https://github.com/numspot/longue-vue/compare/chart-longue-vue-collector-v2.2.0...chart-longue-vue-collector-v2.3.0) (2026-11-24)
+
+
+### Features
+
+* **collector:** add an optional start jitter before the first poll ([5fa0bbe](https://github.com/numspot/longue-vue/commit/5fa0bbe6b4c0a1373081364f87fec1218fe32727))
+* **collector:** add an optional start jitter before the first poll ([06fc84a](https://github.com/numspot/longue-vue/commit/06fc84a531a030f776563e032cd901b8e4fc1593))
+
 ## [2.2.0](https://github.com/sthalbert/Longue-Vue/compare/chart-longue-vue-collector-v2.1.2...chart-longue-vue-collector-v2.2.0) (2026-08-19)
 
 
