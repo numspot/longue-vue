@@ -615,6 +615,56 @@ Test strategy, summarised:
 
 Per the feature-workflow skill, **all CI testing and CI fix loops are delegated to a Sonnet-tier agent** — Opus only re-engages on a failure that needs architectural judgement. The mandatory `pb33f/libopenapi-validator` test is part of Phase 3.
 
+## Deployment notes
+
+Notes from the first production deployment on Kubernetes (November 2026).
+They do not change the decision; they record what the topology of §1 needed
+in practice.
+
+**Topology as deployed.** The gateway runs in a Kubernetes cluster of the DMZ,
+behind Envoy Gateway (Gateway API): an HTTPS listener terminates TLS and runs
+the WAF, and a `BackendTLSPolicy` re-encrypts to the gateway pods. longue-vue
+runs in a separate cluster of the trusted zone. Its ingest listener (`:8443`)
+is published by an internal layer-4 load balancer in TCP passthrough, so
+longue-vue terminates TLS itself and checks the client certificate of the
+gateway (§3, §4).
+
+**Upstream name.** The gateway checks the certificate of longue-vue against
+the host of its upstream URL. The URL must therefore use a name present in the
+certificate. When the load balancer is reached under another DNS name, alias
+the certificate name to it (a Service of type `ExternalName` with that name)
+rather than reissuing the certificate.
+
+**Readiness.** The ingest listener serves only the routes of §3 and has no
+health endpoint. A readiness probe of the gateway that depends on an upstream
+health check never succeeds: probe the gateway's own health listener
+(`:9090`).
+
+**WAF.** Inventory payloads carry container names, images and command lines
+that trigger the command-injection rules of the OWASP Core Rule Set, and the
+larger pushes exceed the default request body limit of the WAF. Skip body
+inspection for the write routes of the allowlist (§2) only, for JSON content
+and for the write methods; keep the rule engine on for headers, URI and
+arguments, and full inspection for everything else. The gateway still
+enforces the allowlist, the content type and the 10 MiB body cap.
+
+**CPU limit on longue-vue.** `POST /v1/auth/verify` hashes the token with
+Argon2id on every cache miss (§5). Under a CPU limit the hashes are throttled
+and collector cycles time out. Run longue-vue with a CPU request and no CPU
+limit.
+
+**DNS cutover.** Publish the route of the public name only after the previous
+record is removed. A DNS controller that owns the new record adds it next to
+an unowned one instead of replacing it, which splits the traffic between the
+old and the new gateway for the lifetime of the record.
+
+**Client certificate of the collectors.** Mutual TLS between the collectors
+and the edge proxy is outside this ADR, which authenticates collectors by
+token. Where it is wanted, enable it on the proxy in two steps: first request
+the certificate without checking it and log what each collector presents,
+then require it. Since version 1.17.0 the collector reloads its certificate
+from disk when it is renewed, without a restart.
+
 ## Future work
 
 - **Pull-mode / queue variant** (alternative §A): a future ADR can add this as a second supported deployment mode if a customer with strictly-no-inbound trusted-zone policy emerges. Same gateway binary, different upstream interface — replaces the synchronous reverse-proxy with a queue producer.
